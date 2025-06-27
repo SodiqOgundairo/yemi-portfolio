@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { projectsData, portfolioCategories, Project, ProjectCategory } from '../../data/portfolioData';
+import { projectsData, portfolioCategories } from '../../data/portfolioData';
+import type { Project, ProjectCategory } from '../../data/portfolioData';
 import PortfolioCard from './PortfolioCard';
 import ProjectModal from './ProjectModal';
 
@@ -55,12 +56,12 @@ const Portfolio: React.FC = () => {
         {/* Portfolio Grid */}
         {filteredProjects.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-            {filteredProjects.map((project, index) => (
+            {filteredProjects.map((project) => (
               <PortfolioCard
                 key={project.id}
                 project={project}
                 onViewDetails={handleViewDetails}
-                // data-aos-delay can be added here if needed: `${index * 100}`
+                // data-aos-delay can be added here if needed for staggered animation
               />
             ))}
           </div>
