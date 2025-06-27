@@ -1,0 +1,33 @@
+@import url("https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100;0,300;0,400;0,500;0,600;0,700;0,900;1,400&display=swap");
+@import "tailwindcss";
+
+/*
+  Tailwind's base styles (via @import "tailwindcss") will handle most global resets.
+  You can add further custom base styles here if needed, for example,
+  setting a default font for the body if not done via tailwind.config.js.
+*/
+body {
+  font-family: "Montserrat", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Base background color can be set here or on a root div in App.tsx,
+     or through Tailwind's theme customization.
+     For now, App.tsx sets bg-gray-900 on the main div. */
+}
+
+/* Example of adding custom base styles for headings if desired */
+/*
+h1, h2, h3, h4, h5, h6 {
+  font-family: "AnotherFontForHeadings", sans-serif; // If you want a different heading font
+}
+*/
+
+/* Any other global styles or custom layers can be defined below */
+/* For example, custom utility classes like in lightlife-react: */
+/*
+@layer utilities {
+  .custom-utility {
+    @apply property-value;
+  }
+}
+*/
