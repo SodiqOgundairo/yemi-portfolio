@@ -1,5 +1,5 @@
 import React from 'react';
-import { Typed } from 'react-typed'; // Corrected import
+import { ReactTyped } from 'react-typed';
 
 const Hero: React.FC = () => {
   return (
@@ -30,7 +30,7 @@ const Hero: React.FC = () => {
           data-aos="fade-up"
           data-aos-delay="400"
         >
-          <Typed
+          <ReactTyped
             strings={[
               "A Product Designer",
               "A Frontend Developer",

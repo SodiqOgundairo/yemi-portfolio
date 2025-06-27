@@ -1,5 +1,5 @@
 import React from 'react';
-import { Project } from '../../data/portfolioData'; // Assuming Project type is exported from data
+import type { Project } from '../../data/portfolioData'; // Assuming Project type is exported from data
 
 interface ProjectModalProps {
   project: Project | null;
