@@ -16,7 +16,7 @@ const Footer: React.FC = () => {
   return (
     <footer
       className="py-8 px-4 bg-gray-800 text-center text-gray-500 border-t border-gray-700"
-      data-aos="fade-up"
+     
     >
       {/* Optional: Social Links in Footer
       <div className="flex justify-center space-x-6 mb-6">
