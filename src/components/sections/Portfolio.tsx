@@ -17,23 +17,23 @@ const Portfolio: React.FC = () => {
 
   const handleViewDetails = (project: Project) => {
     setSelectedProject(project);
-    document.body.style.overflow = 'hidden'; // Prevent background scroll when modal is open
+    document.body.style.overflow = 'hidden';
   };
 
   const handleCloseModal = () => {
     setSelectedProject(null);
-    document.body.style.overflow = 'auto'; // Restore scroll
+    document.body.style.overflow = 'auto';
   };
 
   return (
-    <section id="portfolio" className="py-20 bg-gray-800 text-white">
+    <section id="portfolio" className="py-20 bg-dark-bg">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12" data-aos="fade-up">
-          <h2 className="text-4xl font-bold text-blue-400 mb-3">My Portfolio</h2>
-          <p className="text-lg text-gray-400 max-w-2xl mx-auto">
-            A selection of projects that showcase my passion for design and development.
+          <h2 className="text-4xl font-display font-bold text-primary mb-3">My Work</h2>
+          <p className="text-lg text-muted-text max-w-2xl mx-auto">
+            Here are some of my recent projects.
           </p>
-          <div className="w-20 h-1 bg-blue-400 mx-auto rounded mt-2"></div>
+          <div className="w-24 h-1 bg-primary mx-auto rounded mt-4"></div>
         </div>
 
         {/* Filter Buttons */}
@@ -42,10 +42,10 @@ const Portfolio: React.FC = () => {
             <button
               key={category.id}
               onClick={() => setActiveFilter(category.id)}
-              className={`px-4 py-2 sm:px-6 sm:py-2.5 rounded-lg text-sm sm:text-base font-medium transition-all duration-300 ease-in-out focus:outline-none
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary/50
                 ${activeFilter === category.id
-                  ? 'bg-blue-500 text-white shadow-lg transform scale-105'
-                  : 'bg-gray-700 text-gray-300 hover:bg-blue-400 hover:text-white hover:shadow-md'
+                  ? 'bg-primary text-white shadow-md'
+                  : 'bg-dark-card text-muted-text hover:bg-primary hover:text-white'
                 }`}
             >
               {category.name}
@@ -54,23 +54,21 @@ const Portfolio: React.FC = () => {
         </div>
 
         {/* Portfolio Grid */}
-        {filteredProjects.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-            {filteredProjects.map((project) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+          {filteredProjects.map((project, index) => (
+            <div key={project.id} data-aos="fade-up" data-aos-delay={`${index * 100}`}>
               <PortfolioCard
-                key={project.id}
                 project={project}
                 onViewDetails={handleViewDetails}
-                // data-aos-delay can be added here if needed for staggered animation
               />
-            ))}
-          </div>
-        ) : (
-          <p className="text-center text-gray-500 text-xl" data-aos="fade-up">
-            No projects found for this category. More coming soon!
+            </div>
+          ))}
+        </div>
+        {filteredProjects.length === 0 && (
+          <p className="text-center text-muted text-xl mt-8" data-aos="fade-up">
+            No projects in this category yet. Stay tuned!
           </p>
         )}
-
       </div>
 
       {selectedProject && (
