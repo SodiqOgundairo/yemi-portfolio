@@ -1,1 +1,82 @@
 @import "tailwindcss";
+@source "../../../node_modules/devign/dist";
+@import "devign/styles.css";
+
+/* ─────────────────────────────────────────────────────────────
+   Near-monochrome. Light and material do the colour work, not
+   pigment. One cold tint, used only where light lands.
+   ───────────────────────────────────────────────────────────── */
+@theme {
+  --color-void:   #060607;
+  --color-ash:    #0E0F11;
+  --color-steel:  #17191C;
+  --color-edge:   #262A2F;
+  --color-bone:   #F4F5F6;
+  --color-ghost:  #8A9099;
+  --color-faint:  #4C5257;
+  --color-ice:    #BFD9E6;
+
+  /* Namespaced: devign/styles.css already owns --font-display ("Otama EP",
+     serif) and --font-sans (Poppins). Colliding with those silently swapped
+     the headline to a serif. */
+  --font-head: "Space Grotesk", "Inter", ui-sans-serif, sans-serif;
+  --font-ui:   "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-code: "JetBrains Mono", ui-monospace, monospace;
+}
+
+@layer base {
+  html { background: var(--color-void); }
+  /* body stays transparent: an opaque body paints over the fixed WebGL
+     canvas and the whole scene disappears. */
+  body { background: transparent; }
+  body {
+    color: var(--color-bone);
+    font-family: var(--font-ui);
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  /* Lenis drives scrolling; native smooth would fight it. */
+  html.lenis, html.lenis body { height: auto; }
+  .lenis.lenis-smooth { scroll-behavior: auto !important; }
+  ::selection { background: var(--color-bone); color: var(--color-void); }
+  /* No scrollbar anywhere. Lenis drives position; the bar is chrome we do not want. */
+  html { scrollbar-width: none; -ms-overflow-style: none; }
+  body { scrollbar-width: none; -ms-overflow-style: none; }
+  ::-webkit-scrollbar { width: 0; height: 0; display: none; }
+}
+
+@layer utilities {
+  .hud {
+    font-family: var(--font-code);
+    font-size: 0.6875rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--color-faint);
+  }
+  .display {
+    font-family: var(--font-head);
+    font-weight: 500;
+    letter-spacing: -0.035em;
+    line-height: 0.92;
+  }
+  /* Type clears a path through the scene instead of sitting on noise. */
+  /* Clears a readable channel on the left without dimming the subject.
+     --scrim-k (0..1) widens and deepens it: driven from scroll so the close
+     stations, where the subject fills the left, get more cover than the hero. */
+  .scrim {
+    --scrim-k: 0;
+    background:
+      linear-gradient(90deg,
+        var(--color-void) 0%,
+        color-mix(in srgb, var(--color-void) calc(88% + var(--scrim-k) * 10%), transparent)
+          calc(34% + var(--scrim-k) * 18%),
+        color-mix(in srgb, var(--color-void) calc(40% + var(--scrim-k) * 34%), transparent)
+          calc(52% + var(--scrim-k) * 20%),
+        transparent calc(68% + var(--scrim-k) * 14%));
+  }
+  .hairline { height: 1px; background: var(--color-edge); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}

@@ -1,18 +1,26 @@
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import App from './App.tsx'
-import AOS from 'aos'
-import 'aos/dist/aos.css' // AOS styles
-import './assets/css/index.css'     // Tailwind styles (should be after AOS to allow overrides if needed, though usually not an issue)
+import { StrictMode, lazy, Suspense } from "react";
+import { createRoot } from "react-dom/client";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import App from "./App.tsx";
+import "./assets/css/index.css";
 
-AOS.init({
-  duration: 1000, // values from 0 to 3000, with step 50ms
-  once: false,    // whether animation should happen only once - while scrolling down
-  mirror: true,   // whether elements should animate out while scrolling past them
-});
+// the admin never loads for a normal visitor
+const Admin = lazy(() => import("./admin/Admin.tsx"));
 
-createRoot(document.getElementById('root')!).render(
+createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <App />
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<App />} />
+        <Route
+          path="/admin"
+          element={
+            <Suspense fallback={<div className="p-10 hud">Loading admin…</div>}>
+              <Admin />
+            </Suspense>
+          }
+        />
+      </Routes>
+    </BrowserRouter>
   </StrictMode>,
-)
+);
