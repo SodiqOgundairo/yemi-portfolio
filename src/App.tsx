@@ -1,95 +1,187 @@
-import { useEffect, useState } from "react";
-import World from "./three/World";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
+/* The WebGL chunk is the heaviest thing here by an order of magnitude.
+   Splitting it means the type, the nav and the copy paint immediately and the
+   surface fades in behind them, instead of the whole page waiting on three. */
+const Metal = lazy(() => import("./three/Metal"));
+import Poster from "./three/Poster";
 import Cursor from "./ui/Cursor";
 import Preloader from "./ui/Preloader";
 import Station from "./ui/Station";
-import { useScrollProgress } from "./lib/useScrollProgress";
-import { initSmoothScroll } from "./lib/smooth";
+import Reveal from "./ui/Reveal";
+import Shells from "./ui/Shells";
+import AboutMe from "./ui/AboutMe";
+import { useStage } from "./lib/useStage";
+import { useSceneMode, prefersStill } from "./lib/useCapability";
+import { initSmoothScroll, scrollToId } from "./lib/smooth";
+import { useProjects, boardProjects } from "./lib/useProjects";
+import type { Discipline } from "./lib/supabase";
+import { spell } from "./lib/claims";
+
+const EMAIL = "ogundairosodiq954@gmail.com";
+
+/* Three acts, and the register changes between them on purpose.
+ *
+ *   I  atmosphere  full-bleed surface, two held statements, no density
+ *   II substance   solid ground, the whole body of work, grouped and scannable
+ *   III ask        one action
+ *
+ * The transition is the point: Act II is opaque and simply rises over the
+ * fixed canvas, so the ground swallows the surface rather than the surface
+ * politely fading. It costs nothing, it cannot desync, and it lets the WebGL
+ * frameloop stop dead the moment the stage is off screen. */
 
 export default function App() {
-  const progress = useScrollProgress();
+  const stage = useRef<HTMLDivElement>(null);
+  const { progress, active, grounded } = useStage(stage);
+  /* Decided before first render: on a poster device the WebGL chunk is never
+     even fetched, which is the larger half of the saving. */
+  const mode = useSceneMode();
   const [ready, setReady] = useState(false);
+  const { projects, loaded, error } = useProjects();
+  const board = boardProjects(projects);
+  /* Counted from the live rows so a door can never advertise a number the
+     desktop behind it does not actually hold. */
+  const counts = projects.reduce<Partial<Record<Discipline, number>>>((a, p) => {
+    for (const d of p.disciplines?.length ? p.disciplines : [p.discipline]) {
+      a[d] = (a[d] ?? 0) + 1;
+    }
+    return a;
+  }, {});
 
-  // Stations 01 and 02 fly close, so the subject spills across the left where
-  // the type lives. Ramp the scrim through that stretch only.
-  // Station 01 flies close and needs heavy cover. Station 02 does NOT: its
-  // subject is bright screenshots sitting well right of the type, and a strong
-  // scrim there just dims the work, which is the one thing that must stay lit.
-  const scrimK = (() => {
-    const p = progress;
-    if (p < 0.10) return 0;
-    if (p < 0.26) return (p - 0.10) / 0.16;
-    if (p < 0.34) return 1;
-    if (p < 0.42) return 1 - ((p - 0.34) / 0.08) * 0.7;
-    if (p < 0.62) return 0.3;
-    if (p < 0.76) return 0.3 * (1 - (p - 0.62) / 0.14);
-    return 0;
-  })();
-  useEffect(() => initSmoothScroll(), []);
+  /* Returning from a case study should put you back at the index, not at the
+     top of the scene. The scroll has to wait for the rows to exist, or it
+     lands at a height the page has not grown into yet. */
+  const jumpTo = (useLocation().state as { to?: string } | null)?.to;
+  const jumped = useRef(false);
+  useEffect(() => initSmoothScroll({ reset: !jumpTo }), []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!jumpTo || !loaded || jumped.current) return;
+    jumped.current = true;
+    requestAnimationFrame(() => scrollToId(jumpTo));
+  }, [jumpTo, loaded]);
 
   return (
     <>
-      <Preloader ready={ready} />
+      <Preloader ready={ready} dataReady={loaded} />
       <Cursor />
-      <World progress={progress} onReady={() => setReady(true)} />
-      <div
-        className="scrim pointer-events-none fixed inset-0 z-[1] transition-[--scrim-k] duration-300"
-        style={{ ["--scrim-k" as string]: scrimK.toFixed(3) }}
-      />
+      {mode === "webgl" ? (
+        <Suspense fallback={<div className="fixed inset-0 z-0 bg-void" />}>
+          <Metal progress={progress} projects={board} active={active} onReady={() => setReady(true)} />
+        </Suspense>
+      ) : (
+        <Poster progress={progress} still={prefersStill()} onReady={() => setReady(true)} />
+      )}
 
-      {/* fixed chrome: reads as an instrument panel, always on */}
-      <header className="fixed inset-x-0 top-0 z-40 flex items-center justify-between px-6 py-5 sm:px-10">
-        <span className="hud text-bone">Ogundairo</span>
-        <span className="hud hidden sm:block">Design Engineer</span>
-        <a href="#contact" className="hud transition-colors hover:text-bone">Contact</a>
+      <header
+        className={`fixed inset-x-0 top-0 z-40 flex items-center justify-between px-gutter py-5 transition-colors duration-[var(--dur-move)] ${
+          grounded ? "border-b border-edge bg-void" : "border-b border-transparent"
+        }`}
+      >
+        <button onClick={() => scrollToId("top")} className="hud text-bone">Ogundairo</button>
+        <nav className="flex items-center gap-6">
+          <button onClick={() => scrollToId("work")} className="hud transition-colors hover:text-bone">Work</button>
+          <button onClick={() => scrollToId("about")} className="hud transition-colors hover:text-bone">About</button>
+          <button onClick={() => scrollToId("contact")} className="hud transition-colors hover:text-bone">Contact</button>
+        </nav>
       </header>
-      <div className="pointer-events-none fixed bottom-6 left-6 z-40 hidden sm:block">
-        <span className="hud">{String(Math.round(progress * 100)).padStart(3, "0")}</span>
-      </div>
 
-      <main className="relative z-10">
+      {/* ── Act I ─────────────────────────────────────────────── */}
+      <div id="top" ref={stage} className="pointer-events-none relative z-10">
         <Station id="hero" index="00" label="Design Engineer">
-          <h1 data-reveal className="display text-[13vw] leading-[0.86] sm:text-[9vw] lg:text-[7.5rem]">
+          <h1 data-reveal className="display text-hero">
             Yemi<br />Ogundairo
           </h1>
-          <p data-reveal className="max-w-md text-lg leading-relaxed text-ghost">
+          <p data-reveal className="max-w-md text-lead leading-relaxed text-ghost">
             I design the system, then ship it. Design systems, multi-tenant SaaS,
             mobile and native desktop.
           </p>
         </Station>
 
-        <Station id="about" index="01" label="Approach" align="right">
-          <h2 data-reveal className="display max-w-xl text-4xl sm:text-6xl">
+        <Station id="approach" index="01" label="Approach">
+          <h2 data-reveal className="display max-w-xl text-section">
             Design and engineering are one job.
           </h2>
-          <p data-reveal className="max-w-md text-lg leading-relaxed text-ghost">
+          <p data-reveal className="max-w-md text-lead leading-relaxed text-ghost">
             A decade in design, four years shipping the code behind it. The handoff
             never happens because there is nobody to hand off to.
           </p>
         </Station>
+      </div>
 
-        <Station id="work" index="02" label="Selected Work">
-          <h2 data-reveal className="display max-w-xl text-4xl sm:text-6xl">Things I built and shipped.</h2>
-          <p data-reveal className="max-w-md text-lg leading-relaxed text-ghost">
-            Fourteen-module SaaS. A published component library. Two apps on the store.
-            Native desktop in Electron and Tauri.
-          </p>
-        </Station>
+      {/* ── Act II: the doors ──────────────────────────────────
+          The index used to sit here. Yemi's call, 14/09/2026: the work is
+          carried by the desktops now, so the front door points at them rather
+          than listing the projects itself. WorkIndex is left in the tree, not
+          deleted, because "hide those for now" means this should be one line
+          to put back. /work/:slug stays routed so links already shared keep
+          working even though nothing on the site points at them. */}
+      <section id="work" className="relative z-10 bg-void px-gutter pt-act">
+        <div className="mx-auto max-w-6xl">
+          <Reveal className="flex flex-col gap-6 pb-10">
+            <div data-reveal className="flex items-center gap-4">
+              <span className="hud text-bone">02</span>
+              <span className="hairline w-16" />
+              <span className="hud">Work</span>
+            </div>
+            {/* The old line named three artefacts and stopped there, which
+                read thin once the desktops carried all thirty-four projects.
+                The count is derived, so it cannot go stale the way "five
+                teams" did. */}
+            <h2 data-reveal className="display max-w-3xl text-section">
+              {loaded && projects.length ? spell(projects.length) : "Thirty-four"} projects.
+              Product, engineering and brand. One person on all of it.
+            </h2>
+            <p data-reveal className="max-w-xl text-lead leading-relaxed text-ghost">
+              {loaded && projects.length
+                ? `${projects.length} projects across three disciplines. Open one of the desktops and browse them the way you would on your own machine.`
+                : "Open one of the desktops and browse the work the way you would on your own machine."}
+            </p>
+          </Reveal>
+          <Reveal><Shells counts={counts} /></Reveal>
+          {error && <p className="pt-6 text-small text-ghost">Could not load the work right now.</p>}
+        </div>
+      </section>
 
-        <Station id="craft" index="03" label="Craft" align="center">
-          <h2 data-reveal className="display max-w-2xl text-4xl sm:text-6xl">
-            Built alone, mostly. Taught to three hundred.
-          </h2>
-        </Station>
+      <AboutMe />
 
-        <Station id="contact" index="04" label="Contact" align="center">
-          <h2 data-reveal className="display text-5xl sm:text-7xl">Let's talk.</h2>
-          <a data-reveal href="mailto:ogundairosodiq954@gmail.com"
-             className="text-lg text-ghost underline-offset-8 transition-colors hover:text-bone hover:underline">
-            ogundairosodiq954@gmail.com
-          </a>
-        </Station>
-      </main>
+      {/* ── Act III ───────────────────────────────────────────── */}
+      <section id="contact" className="relative z-10 bg-void px-gutter pb-32 pt-act">
+        <div className="mx-auto max-w-6xl">
+          <Reveal className="flex flex-col gap-8">
+            <div data-reveal className="flex items-center gap-4">
+              <span className="hud text-bone">04</span>
+              <span className="hairline w-16" />
+              <span className="hud">Contact</span>
+            </div>
+            <h2 data-reveal className="display max-w-2xl text-section">
+              If you need one person who can hold both ends, let's talk.
+            </h2>
+            <a
+              data-reveal
+              href={`mailto:${EMAIL}`}
+              className="group inline-flex w-fit items-baseline gap-4 border-b border-edge pb-3 text-row text-bone transition-colors duration-[var(--dur-move)] hover:border-bone"
+            >
+              {EMAIL}
+              <span className="text-ghost transition-transform duration-[var(--dur-move)] ease-[var(--ease-glide)] group-hover:translate-x-1">→</span>
+            </a>
+          </Reveal>
+
+          {/* Both links come off the CV header. Behance is deliberately NOT
+              here: moving off it is the reason this site exists. The phone
+              number is off too, because a public page is a scraper's lunch
+              and the mailto above is the route he wants people to take. */}
+          <div className="mt-24 flex flex-wrap items-center justify-between gap-4 border-t border-edge pt-6">
+            <span className="hud">Yemi Ogundairo · Design Engineer</span>
+            <span className="flex flex-wrap items-center gap-6">
+              <a href="https://www.linkedin.com/in/yemi-ogundairo" target="_blank" rel="noreferrer"
+                 className="hud transition-colors hover:text-bone">LinkedIn ↗</a>
+              <a href="https://github.com/SodiqOgundairo" target="_blank" rel="noreferrer"
+                 className="hud transition-colors hover:text-bone">GitHub ↗</a>
+            </span>
+          </div>
+        </div>
+      </section>
     </>
   );
 }

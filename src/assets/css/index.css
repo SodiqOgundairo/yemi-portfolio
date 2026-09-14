@@ -1,6 +1,14 @@
+/* ORDER MATTERS, and not in the way the Devign README implies.
+   devign/styles.css is not a small component sheet: it is a COMPLETE
+   precompiled Tailwind v4 build, and in it the @media blocks are emitted
+   before the unprefixed utilities. Imported after Tailwind, its `grid-cols-2`
+   therefore lands later in the cascade than its own `sm:grid-cols-4` and
+   silently beats it at every width, so responsive layouts collapse with no
+   error anywhere. Importing it FIRST puts our generated utilities last, where
+   a utility belongs. */
+@import "devign/styles.css";
 @import "tailwindcss";
 @source "../../../node_modules/devign/dist";
-@import "devign/styles.css";
 
 /* ─────────────────────────────────────────────────────────────
    Near-monochrome. Light and material do the colour work, not
@@ -22,6 +30,30 @@
   --font-head: "Space Grotesk", "Inter", ui-sans-serif, sans-serif;
   --font-ui:   "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-code: "JetBrains Mono", ui-monospace, monospace;
+
+  /* Type scale. Declared once so a template never invents a size.
+     Fluid sizes are clamped at both ends: the floor keeps a 28-char title
+     readable on a phone, the ceiling stops it filling a 5K display. */
+  --text-hud:     0.6875rem;
+  --text-micro:   0.75rem;
+  --text-small:   0.8125rem;
+  --text-body:    1rem;
+  --text-lead:    1.125rem;
+  --text-row:     clamp(1.0625rem, 1.6vw, 1.375rem);
+  --text-title:   clamp(2rem, 4.5vw, 3.25rem);
+  --text-section: clamp(2.25rem, 5vw, 3.75rem);
+  --text-hero:    clamp(3.25rem, 12vw, 8.5rem);
+
+  /* Motion. Two easings and three durations, nothing else, so the whole
+     site moves with one hand. */
+  --ease-glide: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-swing: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-tap:  140ms;
+  --dur-move: 380ms;
+  --dur-slow: 900ms;
+
+  --spacing-gutter: clamp(1.5rem, 4vw, 4rem);
+  --spacing-act:    clamp(6rem, 14vh, 11rem);
 }
 
 @layer base {
@@ -43,12 +75,20 @@
   html { scrollbar-width: none; -ms-overflow-style: none; }
   body { scrollbar-width: none; -ms-overflow-style: none; }
   ::-webkit-scrollbar { width: 0; height: 0; display: none; }
+
+  /* Keyboard users get a visible ring everywhere. A design engineer's site
+     arguing for craft cannot drop focus states. */
+  :focus-visible {
+    outline: 2px solid var(--color-ice);
+    outline-offset: 3px;
+    border-radius: 1px;
+  }
 }
 
 @layer utilities {
   .hud {
     font-family: var(--font-code);
-    font-size: 0.6875rem;
+    font-size: var(--text-hud);
     letter-spacing: 0.22em;
     text-transform: uppercase;
     color: var(--color-faint);
@@ -75,8 +115,201 @@
         transparent calc(68% + var(--scrim-k) * 14%));
   }
   .hairline { height: 1px; background: var(--color-edge); }
+
+  /* Long-form prose on a case study. Declared here so the template cannot
+     drift from the scale above. */
+  .prose-case { font-size: var(--text-body); line-height: 1.75; color: var(--color-ghost); }
+  .prose-case > * + * { margin-top: 1.4em; }
+  .prose-case h2 {
+    font-family: var(--font-head); font-weight: 500; letter-spacing: -0.02em;
+    font-size: 1.5rem; line-height: 1.25; color: var(--color-bone);
+    margin-top: 2.6em;
+  }
+  .prose-case strong { color: var(--color-bone); font-weight: 500; }
+  .prose-case ul { padding-left: 1.1em; }
+  .prose-case li { list-style: disc; margin-top: 0.5em; }
+  .prose-case li::marker { color: var(--color-faint); }
+  .prose-case code {
+    font-family: var(--font-code);
+    font-size: 0.875em;
+    color: var(--color-bone);
+    background: var(--color-steel);
+    padding: 0.1em 0.35em;
+    border-radius: 2px;
+  }
+  /* An unanswered question in a draft. Deliberately loud: it is meant to be
+     found and removed, not lived with. */
+  .prose-case .draft-note {
+    border-left: 2px solid var(--color-ice);
+    padding: 0.5rem 0 0.5rem 1rem;
+    color: var(--color-ice);
+    font-size: var(--text-small);
+  }
+  .prose-case .draft-note::before {
+    content: "Needs you";
+    display: block;
+    font-family: var(--font-code);
+    font-size: var(--text-hud);
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--color-faint);
+    padding-bottom: 0.35rem;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   /mac — a second shell over the same Supabase content.
+   No Apple artwork: the wallpaper is drawn here in CSS rather
+   than shipped, which is both a licensing point and 0KB.
+   ───────────────────────────────────────────────────────────── */
+.mac-desktop {
+  background:
+    radial-gradient(120% 90% at 18% 8%,  #6a3fb5 0%, transparent 55%),
+    radial-gradient(100% 80% at 88% 14%, #b0417a 0%, transparent 52%),
+    radial-gradient(120% 110% at 72% 92%, #1d5fa8 0%, transparent 60%),
+    radial-gradient(90% 70% at 8% 96%,   #2a1b5e 0%, transparent 55%),
+    linear-gradient(160deg, #241a4a 0%, #14102c 55%, #0c0a1c 100%);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", ui-sans-serif, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+/* the same grain plate the poster uses, to stop the gradient banding */
+.mac-desktop::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url(/scene/grain.png);
+  background-size: 64px 64px;
+  opacity: 0.14;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+}
+.mac-win {
+  background: #1c1c1e;
+  color: #f2f2f7;
+  contain: paint;
+}
+.mac-win-body::-webkit-scrollbar { width: 9px; height: 9px; display: block; }
+.mac-win-body::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,.22);
+  border-radius: 9px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+.mac-win-body { scrollbar-width: thin; }
+
+/* the case study prose, restyled for a window rather than the dark site */
+.prose-mac { color: rgba(255,255,255,.68); font-size: 14px; }
+.prose-mac h2 { color: #fff; font-size: 1.15rem; margin-top: 2.2em; }
+.prose-mac strong { color: #fff; }
+.prose-mac code { background: rgba(255,255,255,.10); color: #fff; }
+.prose-mac .draft-note {
+  border-left-color: #4aa3ff;
+  color: #9ccdff;
+}
+
+/* Quick Look arrives the way the real one does: a short scale-up, no fade in
+   from nothing, so it reads as the file enlarging rather than a modal. */
+@keyframes ql-in { from { opacity: 0; transform: scale(.94); } to { opacity: 1; transform: none; } }
+.ql-pop { animation: ql-in 160ms cubic-bezier(.2,.9,.3,1.2); }
+@media (prefers-reduced-motion: reduce) { .ql-pop { animation: none; } }
+
+/* Stage Manager rail. The cards sit in perspective and recede toward the
+   screen edge, pivoting on the edge that faces the centre. Flat cards read as
+   a list of windows; angled ones read as Stage Manager. */
+.stage-card {
+  transform: rotateY(19deg) scale(.97);
+  transition: transform 220ms var(--ease-glide), box-shadow 220ms var(--ease-glide);
+}
+.stage-card:hover,
+.stage-card:focus-visible {
+  transform: rotateY(9deg) translateX(8px) scale(1.02);
+}
+@media (prefers-reduced-motion: reduce) {
+  .stage-card, .stage-card:hover { transform: none; transition: none; }
+}
+
+/* ── shell palettes ──────────────────────────────────────────────
+   The app windows are shared across macOS, Ubuntu and Windows and
+   are painted entirely from these tokens, so a shell is chrome plus
+   a palette rather than its own copy of every pane. */
+.os-mac {
+  /* Read out of NSColor on macOS 26.6.2 under darkAqua. Tahoe changed most
+     of these: windowBackground went #323232 -> #1E1E1E, so building from
+     pre-26 values is visibly wrong. */
+  --os-bg: #1E1E1E;            /* windowBackgroundColor */
+  --os-panel: #2E2E2E;         /* sidebar, flat equivalent of rgba(46,46,46,.774) */
+  --os-head: #282828;          /* titlebar band, inactive */
+  --os-line: rgb(255 255 255 / 0.098);   /* separatorColor */
+  --os-text: rgb(255 255 255 / 0.847);   /* labelColor */
+  --os-dim: rgb(255 255 255 / 0.549);    /* secondaryLabelColor */
+  --os-faint: rgb(255 255 255 / 0.247);  /* tertiaryLabelColor */
+  --os-accent: #0059D1;        /* selectedContentBackgroundColor */
+  --os-menu-sel: #4277F4;      /* selectedMenuItemColor: its own value, NOT the accent */
+  --os-link: #419CFF;          /* linkColor */
+  --os-term: #101012f2;
+  --os-term-accent: #5fd35f;
+  --os-view-select: #0059D1;
+  --os-row-select: rgb(255 255 255 / 0.10);
+}
+.os-ubuntu {
+  /* Pulled from libadwaita 1.9 and Yaru 26.04 source, not eyeballed.
+     CORRECTION: #ed5b00 is libadwaita's stock orange, and appears ZERO times
+     in Yaru 26.04.5.1ubuntu. The shipped gnome-shell.css uses #DA4816, the
+     contrast-optimised form of Ubuntu's #E95420. */
+  --os-bg: #1d1d20;          /* libadwaita --view-bg-color, dark */
+  --os-panel: #2e2e32;       /* --sidebar-bg-color, dark */
+  --os-head: #2e2e32;
+  --os-line: rgb(0 0 6 / 0.36);   /* --sidebar-border-color, dark */
+  --os-text: #ffffff;             /* --sidebar-fg-color, dark */
+  --os-dim: rgb(255 255 255 / 0.55);  /* --dim-opacity */
+  --os-accent: #DA4816;
+  --os-link: #f2a48a;
+  --os-term: #2c001ef2;
+  --os-term-accent: #8ae234;
+  /* Nautilus deliberately DE-ACCENTS its file views: it overrides
+     --accent-bg-color to #959595 so a selected file is grey, not orange. */
+  --os-view-select: rgb(149 149 149 / 0.25);
+  --os-row-select: rgb(255 255 255 / 0.10);
+  --os-radius: 9px;          /* $menu_radius */
+}
+.os-win {
+  --os-bg: #1f1f1f;
+  --os-panel: #2a2a2ae6;
+  --os-head: #2f2f2f;
+  --os-line: rgb(255 255 255 / 0.09);
+  --os-text: rgb(255 255 255 / 0.92);
+  --os-dim: rgb(255 255 255 / 0.45);
+  --os-accent: #0078d4;
+  --os-link: #6cb8f6;
+  --os-term: #0c0c0cf2;
+  --os-term-accent: #16c60c;
+}
+
+/* Ubuntu: aubergine into orange. Drawn, not shipped: the Circle of Friends
+   is a Canonical trademark. */
+.ubuntu-desktop {
+  /* the field is near-flat aubergine; all the structure is in the SVG */
+  background: #652648;
+  font-family: "Ubuntu", "Inter", ui-sans-serif, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+/* Measured: there is NO vignette. Corner luminances match the centre to
+   within a few levels. The apparent darkening is the top-right lobe's
+   shadow band, which is drawn in the SVG. */
+/* Windows 11: a blue bloom. Also drawn; theirs is copyrighted. */
+.win-desktop {
+  background:
+    radial-gradient(120% 100% at 50% 46%, #0a4f92 0%, transparent 68%),
+    linear-gradient(170deg, #072e52 0%, #05203c 55%, #03121f 100%);
+  font-family: "Segoe UI Variable", "Segoe UI", "Inter", ui-sans-serif, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.ubuntu-desktop::after, .win-desktop::after {
+  content: ""; position: absolute; inset: 0;
+  background-image: url(/scene/grain.png); background-size: 64px 64px;
+  opacity: .12; mix-blend-mode: overlay; pointer-events: none;
 }

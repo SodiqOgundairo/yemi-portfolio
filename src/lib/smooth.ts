@@ -14,26 +14,40 @@ function resetScroll(lenis?: Lenis) {
   lenis?.scrollTo(0, { immediate: true });
 }
 
-export function initSmoothScroll() {
+/** The live instance, so in-page links can hand the scroll to Lenis instead
+ *  of jumping natively and desyncing the smoothing layer. */
+let current: Lenis | null = null;
+
+export function scrollToId(id: string) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (current) current.scrollTo(el, { offset: -8 });
+  else el.scrollIntoView({ behavior: "smooth" });
+}
+
+export function initSmoothScroll({ reset = true }: { reset?: boolean } = {}) {
   if ("scrollRestoration" in history) history.scrollRestoration = "manual";
-  resetScroll();
+  if (reset) resetScroll();
 
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
     // still land at the top, just without the smoothing layer
-    requestAnimationFrame(() => resetScroll());
+    if (reset) requestAnimationFrame(() => resetScroll());
     return () => {};
   }
   const lenis = new Lenis({ duration: 1.15, smoothWheel: true, touchMultiplier: 1.6 });
+  current = lenis;
   lenis.on("scroll", ScrollTrigger.update);
   const tick = (t: number) => lenis.raf(t * 1000);
   gsap.ticker.add(tick);
   gsap.ticker.lagSmoothing(0);
 
   // some browsers restore a frame late, so assert the top twice
-  resetScroll(lenis);
-  requestAnimationFrame(() => resetScroll(lenis));
+  if (reset) {
+    resetScroll(lenis);
+    requestAnimationFrame(() => resetScroll(lenis));
+  }
 
-  return () => { gsap.ticker.remove(tick); lenis.destroy(); };
+  return () => { gsap.ticker.remove(tick); lenis.destroy(); current = null; };
 }
 
 export { gsap, ScrollTrigger };
