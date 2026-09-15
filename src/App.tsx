@@ -124,12 +124,16 @@ export default function App() {
               <span className="hairline w-16" />
               <span className="hud">Work</span>
             </div>
-            {/* The old line named three artefacts and stopped there, which
-                read thin once the desktops carried all thirty-four projects.
-                The count is derived, so it cannot go stale the way "five
-                teams" did. */}
+            {/* The old line named three artefacts and stopped there, which read
+                thin once the desktops carried the whole body of work. The count
+                is derived from the live rows instead.
+                It is also PREFIXED rather than defaulted. The fallback used to
+                be a hardcoded "Thirty-four", which had already gone stale by
+                four on 15/09/2026 and, worse, stated a number to a visitor on
+                exactly the load that had just failed. A headline that says
+                nothing beats one that invents something. */}
             <h2 data-reveal className="display max-w-3xl text-section">
-              {loaded && projects.length ? spell(projects.length) : "Thirty-four"} projects.
+              {loaded && projects.length ? `${spell(projects.length)} projects. ` : ""}
               Product, engineering and brand. One person on all of it.
             </h2>
             <p data-reveal className="max-w-xl text-lead leading-relaxed text-ghost">

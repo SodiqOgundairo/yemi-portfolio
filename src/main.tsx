@@ -2,6 +2,7 @@ import { StrictMode, lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import App from "./App.tsx";
+import ErrorBoundary from "./ui/ErrorBoundary.tsx";
 import "./assets/css/index.css";
 
 // the admin never loads for a normal visitor
@@ -31,18 +32,25 @@ function Lazy({ children }: { children: React.ReactNode }) {
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<App />} />
-        <Route path="/work/:slug" element={<Lazy><Project /></Lazy>} />
-        <Route path="/mac" element={<Lazy><Mac /></Lazy>} />
-        <Route path="/ubuntu" element={<Lazy><Ubuntu /></Lazy>} />
-        <Route path="/windows" element={<Lazy><Windows /></Lazy>} />
-        <Route path="/admin" element={<Lazy><Admin /></Lazy>} />
-        {Preview && <Route path="/preview" element={<Lazy><Preview /></Lazy>} />}
-        {/* an unknown address lands on the work rather than on nothing */}
-        <Route path="*" element={<App />} />
-      </Routes>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<App />} />
+          <Route path="/work/:slug" element={<Lazy><Project /></Lazy>} />
+          <Route path="/mac" element={<Lazy><Mac /></Lazy>} />
+          <Route path="/ubuntu" element={<Lazy><Ubuntu /></Lazy>} />
+          <Route path="/windows" element={<Lazy><Windows /></Lazy>} />
+          <Route path="/admin" element={<Lazy><Admin /></Lazy>} />
+          {Preview && <Route path="/preview" element={<Lazy><Preview /></Lazy>} />}
+          {/* an unknown address lands on the work rather than on nothing */}
+          <Route path="*" element={<App />} />
+        </Routes>
+      </BrowserRouter>
+    </ErrorBoundary>
   </StrictMode>,
 );
+
+/* Tells the inline boot guard in index.html that the entry module survived.
+   Reaching this line is the whole signal: anything that throws above it never
+   gets here, and the guard paints instead of leaving a blank page. */
+window.__portfolioBooted?.();

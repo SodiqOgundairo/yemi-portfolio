@@ -4,6 +4,7 @@ import {
   supabase, listProjects, upsertProject, deleteProject, uploadImage, isOwner, setPublished,
   listAbout, upsertAbout, deleteAbout, setAboutPublished,
   DISCIPLINES, DISCIPLINE_LABEL, ABOUT_KINDS, ABOUT_LABEL,
+  CONFIGURED, CONFIG_ERROR,
   type Project, type About, type AboutKind,
 } from "../lib/supabase";
 import { HEADLINE_CLAIM, spell, countCountries } from "../lib/claims";
@@ -84,11 +85,24 @@ function SignIn() {
         <p className="mt-5 text-[15px] leading-relaxed text-ghost">
           Sign in to add and edit work. Writes are limited to the owner allowlist.
         </p>
-        <div className="mt-9">
-          <Button onClick={google} isLoading={busy} size="lg" className={`w-full justify-center rounded-none ${BTN.solid}`}>
-            Continue with Google
-          </Button>
-        </div>
+        {/* Same principle as NotAuthorised below: say it plainly rather than
+            offering a button that cannot work. A build with no credentials
+            points at a host that does not resolve, so the OAuth round trip
+            fails with a network error naming nothing useful. */}
+        {CONFIGURED ? (
+          <div className="mt-9">
+            <Button onClick={google} isLoading={busy} size="lg" className={`w-full justify-center rounded-none ${BTN.solid}`}>
+              Continue with Google
+            </Button>
+          </div>
+        ) : (
+          <div className="mt-9 border border-edge p-4">
+            <p className="text-sm leading-relaxed text-red-400">{CONFIG_ERROR}</p>
+            <p className="hud mt-3 leading-relaxed">
+              Set both on the host, then REDEPLOY. They are inlined when the bundle is built, so a refresh will not pick them up.
+            </p>
+          </div>
+        )}
         {err && <p className="mt-4 text-sm text-red-400">{err}</p>}
         <div className="mt-10 h-px bg-edge" />
         <p className="hud mt-4 leading-relaxed">

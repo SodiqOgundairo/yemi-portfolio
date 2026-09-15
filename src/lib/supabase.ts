@@ -1,32 +1,60 @@
 import { createClient } from "@supabase/supabase-js";
 
-const url = import.meta.env.VITE_SUPABASE_URL as string;
-const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const key = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
-if (!url || !key) {
-  // fail loudly in dev rather than silently rendering an empty portfolio
-  console.error("Missing VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY. Copy .env.example to .env.local.");
+/** Whether this BUILD was handed credentials. Vite inlines env vars when the
+ *  bundle is produced, so this is settled at build time, not at runtime: a
+ *  deploy built without them stays unconfigured until it is rebuilt. Setting
+ *  them on the host is only half the fix, the redeploy is the other half. */
+export const CONFIGURED = Boolean(url && key);
+
+export const CONFIG_ERROR =
+  "This build has no database credentials: VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY were missing when it was built.";
+
+if (!CONFIGURED) {
+  console.error(CONFIG_ERROR, "Copy .env.example to .env.local for local work, or set both on the host and REDEPLOY.");
 }
+
+/** Refuses a read or write that cannot possibly succeed, naming the real
+ *  fault instead of letting it surface as a DNS failure. */
+export function assertConfigured() {
+  if (!CONFIGURED) throw new Error(CONFIG_ERROR);
+}
+
+/* `.invalid` is reserved by RFC 2606 and can never resolve, so anything that
+   slips past the guards dies at DNS rather than reaching a real host.
+   The placeholder exists for one reason: createClient THROWS on an empty url,
+   and it is called at module scope. On 15/09/2026 that throw killed the entry
+   chunk before createRoot ever ran and took the whole site to a blank page for
+   want of one env var. A missing key is now a DEGRADED site, not an absent
+   one, and the boot guard in index.html catches whatever this does not. */
+const PLACEHOLDER_URL = "https://unconfigured.invalid";
 
 /** Everything portfolio-related lives in its own schema inside the shared
  *  Gr8QM project, so the client is pinned to it. Without this the SDK talks
  *  to `public` and finds nothing. */
 /* Session isolation from Gr8QM.
  *
- * localStorage is partitioned by ORIGIN, so portfolio.gr8qm.com and
- * www.gr8qm.com already get separate stores and a Gr8QM session cannot appear
- * here. The subtlety is that BOTH apps point at the same Supabase project, so
- * they default to the SAME storage key (`sb-<ref>-auth-token`). Same key +
- * same origin (a path-based deploy, a preview URL, a future consolidation)
- * would mean one app silently adopting or clobbering the other's session.
- * A distinct key removes that class of accident entirely.
+ * localStorage is partitioned by ORIGIN, so while the two sites sit on
+ * different origins a Gr8QM session cannot appear here. The subtlety is that
+ * BOTH apps point at the same Supabase project, so they default to the SAME
+ * storage key (`sb-<ref>-auth-token`). Same key + same origin (a path-based
+ * deploy, a preview URL, a future consolidation) would mean one app silently
+ * adopting or clobbering the other's session. A distinct key removes that
+ * class of accident entirely, whatever this ends up being served from.
+ *
+ * An earlier version of this note named gr8qm.com subdomains as the layout.
+ * That was never the plan: corrected 15/09/2026. The reasoning above does not
+ * depend on the domain, only on the shared Supabase project.
  *
  * Gr8QM uses plain createClient with localStorage and no cookies, so there is
- * no `.gr8qm.com`-scoped cookie to leak across subdomains. If it ever moves to
- * @supabase/ssr with cookie auth, revisit this: cookies DO cross subdomains. */
+ * no shared-parent cookie to leak across subdomains. If it ever moves to
+ * @supabase/ssr with cookie auth AND the two land on subdomains of one parent,
+ * revisit this: cookies DO cross subdomains. */
 export const AUTH_STORAGE_KEY = "bigyems-portfolio-auth";
 
-export const supabase = createClient(url, key, {
+export const supabase = createClient(url || PLACEHOLDER_URL, key || "unconfigured", {
   db: { schema: "bigyems_portfolio" },
   auth: {
     persistSession: true,
@@ -45,6 +73,8 @@ export const BUCKET = "bigyems-portfolio";
  *  sign-in at the auth layer without breaking their registrations. The gate
  *  therefore lives in the app, backed by the same check RLS enforces. */
 export async function isOwner() {
+  // no credentials means no owner, rather than a failed round trip to nowhere
+  if (!CONFIGURED) return false;
   const { data, error } = await supabase.rpc("is_owner");
   if (error) return false;
   return data === true;
@@ -88,6 +118,7 @@ export type Project = {
 };
 
 export async function listProjects(opts: { publishedOnly?: boolean } = {}) {
+  assertConfigured();
   let q = supabase.from("projects").select("*").order("sort", { ascending: true });
   if (opts.publishedOnly) q = q.eq("published", true);
   const { data, error } = await q;
@@ -96,6 +127,7 @@ export async function listProjects(opts: { publishedOnly?: boolean } = {}) {
 }
 
 export async function upsertProject(p: Partial<Project>) {
+  assertConfigured();
   const { data, error } = await supabase
     .from("projects")
     .upsert({ ...p, updated_at: new Date().toISOString() }, { onConflict: "slug" })
@@ -109,6 +141,7 @@ export async function upsertProject(p: Partial<Project>) {
  *  require sending the whole record back, which is what the editor's upsert
  *  does and is why this lived buried in a form. */
 export async function setPublished(id: string, published: boolean) {
+  assertConfigured();
   const { error } = await supabase
     .from("projects")
     .update({ published, updated_at: new Date().toISOString() })
@@ -117,12 +150,14 @@ export async function setPublished(id: string, published: boolean) {
 }
 
 export async function deleteProject(id: string) {
+  assertConfigured();
   const { error } = await supabase.from("projects").delete().eq("id", id);
   if (error) throw error;
 }
 
 /** Uploads to the public bucket and returns the public URL. */
 export async function uploadImage(file: File, slug: string) {
+  assertConfigured();
   const ext = file.name.split(".").pop() || "jpg";
   const path = `${slug}/${Date.now()}.${ext}`;
   const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
@@ -170,6 +205,7 @@ export type About = {
 };
 
 export async function listAbout(opts: { publishedOnly?: boolean } = {}) {
+  assertConfigured();
   let q = supabase.from("about").select("*").order("sort", { ascending: true });
   if (opts.publishedOnly) q = q.eq("published", true);
   const { data, error } = await q;
@@ -181,6 +217,7 @@ export async function listAbout(opts: { publishedOnly?: boolean } = {}) {
  *  insert and an update is keyed on the id the row came back with. Sending an
  *  undefined id would make every save a new row. */
 export async function upsertAbout(r: Partial<About>) {
+  assertConfigured();
   const body = { ...r, updated_at: new Date().toISOString() };
   if (!body.id) delete body.id;
   const { data, error } = await supabase.from("about").upsert(body).select().single();
@@ -189,6 +226,7 @@ export async function upsertAbout(r: Partial<About>) {
 }
 
 export async function setAboutPublished(id: string, published: boolean) {
+  assertConfigured();
   const { error } = await supabase
     .from("about")
     .update({ published, updated_at: new Date().toISOString() })
@@ -197,6 +235,7 @@ export async function setAboutPublished(id: string, published: boolean) {
 }
 
 export async function deleteAbout(id: string) {
+  assertConfigured();
   const { error } = await supabase.from("about").delete().eq("id", id);
   if (error) throw error;
 }

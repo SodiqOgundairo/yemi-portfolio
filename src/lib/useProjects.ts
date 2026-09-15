@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { supabase, listProjects, DISCIPLINES, type Project, type Discipline } from "./supabase";
+import { supabase, listProjects, assertConfigured, DISCIPLINES, type Project, type Discipline } from "./supabase";
 
 /** A project earns its own page when there is something to read or look at.
  *  Deriving this from the content rather than a toggle means a page can never
@@ -33,6 +33,10 @@ export function useProjects(): ProjectsState {
     let alive = true;
     (async () => {
       try {
+        /* Refuse before dialling. listProjects checks too, but the images
+           read below is a direct call and would otherwise fire at a host
+           that cannot resolve. */
+        assertConfigured();
         /* Concurrent, not sequential. The gallery counts do not depend on the
            project rows, and awaiting one before starting the other added about
            600ms to the point where the page has its content. Still two bounded

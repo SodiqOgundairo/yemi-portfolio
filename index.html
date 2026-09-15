@@ -11,6 +11,89 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&family=Ubuntu:wght@400;500;700&family=Ubuntu+Sans+Mono:wght@400&display=swap" rel="stylesheet">
+
+    <!-- Boot guard. Inline, dependency-free and deliberately ugly to look at
+         in source: it is the only code still running when the BUNDLE is what
+         failed, so it cannot import anything, cannot use the site's CSS and
+         cannot assume React ever mounted. It exists because one missing env
+         var threw inside lib/supabase.ts at module scope on 15/09/2026 and
+         took the entire site to a blank screen with nothing on it to say so.
+         The React-side ErrorBoundary covers the other half, a throw AFTER
+         mount. Neither can cover the other's ground. -->
+    <script>
+      (function () {
+        var booted = false, painted = false, errs = [];
+        // main.tsx calls this once the entry module has survived to render()
+        window.__portfolioBooted = function () { booted = true; };
+
+        function note(m) { if (m && errs.indexOf(m) < 0) errs.push(m); }
+        function empty() {
+          var r = document.getElementById('root');
+          return !r || r.children.length === 0;
+        }
+        // A stray error does not always mean a dead page, so give React a
+        // moment to render anyway before calling it.
+        function soon() { setTimeout(function () { if (!booted && empty()) paint(); }, 1200); }
+
+        // Capture phase on purpose: a chunk that 404s raises a resource error
+        // that does NOT bubble, and a stale chunk after a redeploy is the most
+        // common way this page dies.
+        window.addEventListener('error', function (e) {
+          var t = e.target;
+          if (t && t !== window && (t.src || t.href)) note('Could not load ' + (t.src || t.href));
+          else note(e.message || String(e.error || 'Unknown error'));
+          soon();
+        }, true);
+
+        window.addEventListener('unhandledrejection', function (e) {
+          var r = (e && e.reason) || {};
+          note(r.message || r.stack || String(r));
+          soon();
+        });
+
+        // Backstop for the failure that throws nothing at all, e.g. an import
+        // that never settles. Long enough not to libel a slow connection.
+        setTimeout(function () { if (empty()) paint(); }, 15000);
+
+        function paint() {
+          if (painted) return;
+          painted = true;
+          var host = document.getElementById('root') || document.body;
+          var G = 'clamp(1.5rem,4vw,4rem)';
+          var mono = '"JetBrains Mono",ui-monospace,monospace';
+          host.innerHTML =
+            '<div style="position:fixed;inset:0;z-index:2147483647;display:flex;flex-direction:column;justify-content:center;' +
+              'background:#060607;color:#F4F5F6;font-family:Inter,ui-sans-serif,system-ui,sans-serif;padding:' + G + '">' +
+              '<span style="position:absolute;top:1.25rem;left:' + G + ';font-family:' + mono + ';font-size:.6875rem;' +
+                'letter-spacing:.22em;text-transform:uppercase">Ogundairo</span>' +
+              '<div style="max-width:34rem;display:flex;flex-direction:column;gap:1.25rem">' +
+                '<h1 style="margin:0;font-family:&quot;Space Grotesk&quot;,Inter,sans-serif;font-weight:500;' +
+                  'letter-spacing:-.035em;line-height:1.05;font-size:clamp(2rem,5vw,3rem)">This page did not load.</h1>' +
+                '<p style="margin:0;color:#8A9099;font-size:1.0625rem;line-height:1.6">Something broke while the site was ' +
+                  'starting up, so nothing rendered. A reload usually fixes it.</p>' +
+                '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:1.5rem;margin-top:.5rem">' +
+                  '<button id="__bootReload" style="appearance:none;border:1px solid #262A2F;background:transparent;' +
+                    'color:#F4F5F6;font:inherit;font-size:.8125rem;padding:.7rem 1.4rem;cursor:pointer">Reload</button>' +
+                  '<a href="mailto:ogundairosodiq954@gmail.com" style="color:#8A9099;font-size:.8125rem;' +
+                    'text-decoration:none;border-bottom:1px solid #262A2F;padding-bottom:2px">Tell me it is broken</a>' +
+                '</div>' +
+                '<details style="margin-top:1.5rem">' +
+                  '<summary style="cursor:pointer;color:#4C5257;font-family:' + mono + ';font-size:.6875rem;' +
+                    'letter-spacing:.22em;text-transform:uppercase">Technical detail</summary>' +
+                  '<pre id="__bootErr" style="margin:.75rem 0 0;white-space:pre-wrap;word-break:break-word;' +
+                    'font-family:' + mono + ';font-size:.75rem;line-height:1.6;color:#8A9099;background:#0E0F11;' +
+                    'border:1px solid #262A2F;padding:.875rem;max-height:40vh;overflow:auto"></pre>' +
+                '</details>' +
+              '</div>' +
+            '</div>';
+          // textContent, never innerHTML: an error message is untrusted text
+          // and can carry markup.
+          document.getElementById('__bootErr').textContent =
+            errs.length ? errs.join('\n\n') : 'No error was reported. The page simply never rendered.';
+          document.getElementById('__bootReload').onclick = function () { location.reload(); };
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>
