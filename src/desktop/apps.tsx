@@ -60,10 +60,21 @@ export function Finder({
 
   const projects = useMemo(() => {
     if (scope !== "all") return groups.find((g) => g.discipline === scope)?.projects ?? [];
-    /* Under All Work a project appears ONCE, filed under its PRIMARY
-       discipline. Projects carry several, so summing the shelves listed Flock
-       twice and counted 57 of 38. */
-    return groups.flatMap((g) => g.projects.filter((p) => p.discipline === g.discipline));
+    /* Under All Work a project appears ONCE. Projects carry several
+       disciplines, so summing the shelves listed Flock twice and counted 57
+       of 38.
+       Deduped BY ID, not by matching the primary discipline to the shelf.
+       That earlier rule silently dropped any project whose primary was not in
+       its own `disciplines` list: two rows were in exactly that state, so the
+       sidebar advertised 38 while the list rendered 36. A count and a list
+       disagreeing is worse than either being wrong, and no data state should
+       be able to hide a project from the view that claims to show everything. */
+    const seen = new Set<string>();
+    return groups.flatMap((g) => g.projects).filter((p) => {
+      if (seen.has(p.id)) return false;
+      seen.add(p.id);
+      return true;
+    });
   }, [groups, scope]);
 
   /* Kinds present in this scope, in the fixed order, plus anything not yet
