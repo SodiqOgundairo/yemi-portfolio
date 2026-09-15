@@ -20,4 +20,11 @@ export default tseslint.config([
       globals: globals.browser,
     },
   },
+  {
+    // Serverless functions run in Node, not the browser: process and the node:
+    // builtins are legitimate here and globals.browser does not know them.
+    files: ["api/**/*.ts"],
+    languageOptions: { globals: globals.node },
+    rules: { "react-refresh/only-export-components": "off" },
+  },
 ])

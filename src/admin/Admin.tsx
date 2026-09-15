@@ -1,12 +1,13 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Button } from "devign";
 import {
-  supabase, listProjects, upsertProject, deleteProject, uploadImage, isOwner, setPublished,
+  supabase, listProjects, upsertProject, deleteProject, isOwner, setPublished,
   listAbout, upsertAbout, deleteAbout, setAboutPublished,
   DISCIPLINES, DISCIPLINE_LABEL, ABOUT_KINDS, ABOUT_LABEL,
   CONFIGURED, CONFIG_ERROR,
   type Project, type About, type AboutKind,
 } from "../lib/supabase";
+import { cldUrl, uploadCover } from "../lib/cloudinary";
 import { HEADLINE_CLAIM, spell, countCountries } from "../lib/claims";
 
 const BLANK: Partial<Project> = {
@@ -158,7 +159,7 @@ function Editor({ value, onSaved, onCancel }: {
   async function pickImage(file: File) {
     if (!p.slug) { setErr("Add a slug first — the upload path uses it."); return; }
     setBusy(true); setErr(null);
-    try { set("cover_url", await uploadImage(file, p.slug)); }
+    try { set("cover_url", await uploadCover(file, p.slug)); }
     catch (e2) { setErr((e2 as Error).message); } finally { setBusy(false); }
   }
 
@@ -255,7 +256,7 @@ function Editor({ value, onSaved, onCancel }: {
         <div className="flex flex-wrap items-center gap-6">
           <div className="h-[92px] w-[147px] shrink-0 overflow-hidden border border-edge bg-ash">
             {p.cover_url
-              ? <img src={p.cover_url} alt="" className="h-full w-full object-cover" />
+              ? <img src={cldUrl(p.cover_url, { w: 300 })} alt="" className="h-full w-full object-cover" />
               : <div className="grid h-full w-full place-items-center"><span className="hud">no image</span></div>}
           </div>
           <div className="min-w-[240px] flex-1 space-y-4">
@@ -667,7 +668,7 @@ export default function Admin() {
                 {rows.map((r) => (
                   <li key={r.id} className="group flex items-center gap-5 border-b border-edge py-4">
                     <div className="h-11 w-[70px] shrink-0 overflow-hidden border border-edge bg-ash">
-                      {r.cover_url && <img src={r.cover_url} alt="" className="h-full w-full object-cover" />}
+                      {r.cover_url && <img src={cldUrl(r.cover_url, { w: 160 })} alt="" className="h-full w-full object-cover" />}
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[15px] text-bone">{r.title}</p>

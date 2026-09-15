@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { DISCIPLINE_LABEL, type Project } from "../lib/supabase";
+import { cldUrl } from "../lib/cloudinary";
 
 /* Quick Look. Space opens it on the selected item, space or escape closes it,
    and it never navigates: the whole point is to look without committing, which
@@ -42,7 +43,8 @@ export default function QuickLook({
 
         <div className="min-h-0 flex-1 overflow-y-auto">
           {project.cover_url ? (
-            <img src={project.cover_url} alt="" className="max-h-[300px] w-full object-cover" />
+            /* contain: a Quick Look that crops the page defeats the point of looking */
+            <img src={cldUrl(project.cover_url, { w: 960 })} alt="" className="max-h-[300px] w-full bg-white/[0.04] object-contain" />
           ) : (
             <div className="grid h-[130px] place-items-center bg-white/[0.04] text-[12px] text-white/30">
               No preview image

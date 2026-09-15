@@ -5,6 +5,7 @@ import { renderBody, readingTime } from "../lib/markdown";
 import { MacIcon } from "../mac/icons";
 import { YaruIcon } from "../ubuntu/icons";
 import { FluentIcon } from "../win/icons";
+import { cldUrl } from "../lib/cloudinary";
 
 const EMAIL = "ogundairosodiq954@gmail.com";
 
@@ -162,10 +163,15 @@ function Preview({ p, openable, onOpen }: { p: Project; openable: boolean; onOpe
   const metrics = Object.entries(p.metrics ?? {}).slice(0, 4);
   return (
     <div className="flex flex-col gap-3 p-3.5">
+      {/* contain, not cover. These are 1280x800 screenshots of a live page:
+          cropping one to fill the box discards the page it exists to show.
+          The box is 8/5 so a screenshot fills it exactly, and the matte
+          letterboxes the brand photos (1:1, 2:3) on purpose rather than
+          cutting them. Do not "tidy" this back to object-cover. */}
       {p.cover_url ? (
-        <img src={p.cover_url} alt="" className="aspect-[4/3] w-full rounded-[6px] object-cover" />
+        <img src={cldUrl(p.cover_url, { w: 440 })} alt="" className="aspect-[8/5] w-full rounded-[6px] bg-white/[0.04] object-contain" />
       ) : (
-        <span className="grid aspect-[4/3] w-full place-items-center rounded-[6px] bg-white/[0.05] text-[11px] text-white/25">
+        <span className="grid aspect-[8/5] w-full place-items-center rounded-[6px] bg-white/[0.05] text-[11px] text-white/25">
           No preview
         </span>
       )}
@@ -241,7 +247,12 @@ export function Reader({ slug }: { slug: string }) {
   const words = p.body ? p.body.trim().split(/\s+/).length : 0;
   return (
     <div className="bg-[var(--os-bg)]">
-      {p.cover_url && <img src={p.cover_url} alt="" className="h-[190px] w-full object-cover" />}
+      {/* Was h-[190px] + object-cover, which showed a 38% horizontal band
+          of the screenshot and cut off both the nav and the product shot.
+          Bounded height with contain keeps the whole capture readable. */}
+      {p.cover_url && (
+        <img src={cldUrl(p.cover_url, { w: 1000 })} alt="" className="max-h-[340px] w-full bg-white/[0.04] object-contain" />
+      )}
       <div className="mx-auto max-w-[62ch] px-7 py-8">
         <p className="text-[11px] uppercase tracking-[0.18em] text-white/40">
           {DISCIPLINE_LABEL[p.discipline]}{words ? ` · ${readingTime(p.body!)} min` : ""}
@@ -260,7 +271,7 @@ export function Reader({ slug }: { slug: string }) {
         {p.body && <div className="prose-case prose-mac pt-7">{renderBody(p.body)}</div>}
         {imgs.map((im) => (
           <figure key={im.id} className="pt-7">
-            <img src={im.url} alt={im.caption ?? ""} loading="lazy" className="w-full rounded-md" />
+            <img src={cldUrl(im.url, { w: 1000 })} alt={im.caption ?? ""} loading="lazy" className="w-full rounded-md" />
             {im.caption && <figcaption className="pt-2 text-[11px] text-white/40">{im.caption}</figcaption>}
           </figure>
         ))}

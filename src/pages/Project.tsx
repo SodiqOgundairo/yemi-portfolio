@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { supabase, DISCIPLINE_LABEL, type Project as P } from "../lib/supabase";
 import { renderBody, readingTime } from "../lib/markdown";
+import { cldUrl } from "../lib/cloudinary";
 
 export type Img = { id: string; url: string; caption: string | null; sort: number };
 
@@ -130,7 +131,7 @@ export function ProjectView({ p, imgs, onWork }: { p: P; imgs: Img[]; onWork: ()
 
         {p.cover_url && (
           <figure className="mt-16 overflow-hidden border border-edge bg-ash">
-            <img src={p.cover_url} alt="" className="w-full" />
+            <img src={cldUrl(p.cover_url, { w: 1600 })} alt="" className="w-full" />
           </figure>
         )}
 
@@ -141,7 +142,7 @@ export function ProjectView({ p, imgs, onWork }: { p: P; imgs: Img[]; onWork: ()
             {imgs.map((im) => (
               <figure key={im.id}>
                 <div className="overflow-hidden border border-edge bg-ash">
-                  <img src={im.url} alt={im.caption ?? ""} loading="lazy" className="w-full" />
+                  <img src={cldUrl(im.url, { w: 1600 })} alt={im.caption ?? ""} loading="lazy" className="w-full" />
                 </div>
                 {im.caption && <figcaption className="hud pt-3">{im.caption}</figcaption>}
               </figure>
