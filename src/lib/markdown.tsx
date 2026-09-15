@@ -1,3 +1,4 @@
+import { DISCIPLINE_LABEL, DISCIPLINES, type Project } from "./supabase";
 import type { ReactNode } from "react";
 
 /* A deliberately tiny subset, not a markdown library.
@@ -75,4 +76,25 @@ export function renderBody(body: string): ReactNode[] {
  *  claim "0 min read". */
 export function readingTime(body: string) {
   return Math.max(1, Math.round(body.trim().split(/\s+/).length / 220));
+}
+
+/* Every discipline a project belongs to, not just the primary one.
+   Showing only `discipline` meant 19 of the 24 projects in the Engineering
+   folder announced themselves as Product & UI, because the folders filter on
+   `disciplines` while the label read the singular field beside it. */
+export function disciplinesOf(p: Pick<Project, "discipline" | "disciplines">) {
+  const list = p.disciplines?.length ? p.disciplines : [p.discipline];
+  // the primary leads, the rest follow in the canonical order
+  const ordered = [p.discipline, ...DISCIPLINES.filter((d) => d !== p.discipline)]
+    .filter((d) => list.includes(d));
+  return ordered.map((d) => DISCIPLINE_LABEL[d]).join(" · ");
+}
+
+/* A reading time only earns its place when it varies. 33 of 38 briefs round
+   to "1 min" because of the floor in readingTime, so below two minutes it is
+   a constant pretending to be information. */
+export function readingLabel(body: string | null) {
+  if (!body?.trim()) return null;
+  const mins = readingTime(body);
+  return mins >= 2 ? `${mins} min` : null;
 }

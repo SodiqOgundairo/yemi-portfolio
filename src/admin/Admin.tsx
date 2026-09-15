@@ -3,16 +3,16 @@ import { Button } from "devign";
 import {
   supabase, listProjects, upsertProject, deleteProject, isOwner, setPublished,
   listAbout, upsertAbout, deleteAbout, setAboutPublished,
-  DISCIPLINES, DISCIPLINE_LABEL, ABOUT_KINDS, ABOUT_LABEL,
+  DISCIPLINES, DISCIPLINE_LABEL, ABOUT_KINDS, ABOUT_LABEL, KINDS, KIND_LABEL,
   CONFIGURED, CONFIG_ERROR,
-  type Project, type About, type AboutKind,
+  type Project, type About, type AboutKind, type Kind,
 } from "../lib/supabase";
 import { cldUrl, uploadCover } from "../lib/cloudinary";
 import { HEADLINE_CLAIM, spell, countCountries } from "../lib/claims";
 
 const BLANK: Partial<Project> = {
   slug: "", title: "", discipline: "product", disciplines: ["product"], role: "", summary: "", body: "",
-  stack: [], metrics: {}, live_url: "", repo_url: "", cover_url: "",
+  stack: [], metrics: {}, live_url: "", repo_url: "", cover_url: "", kind: null,
   year: new Date().getFullYear(), featured: false, sort: 0, published: false,
 };
 
@@ -200,6 +200,19 @@ function Editor({ value, onSaved, onCancel }: {
                 );
               })}
             </div>
+          </Field>
+          {/* One kind, unlike disciplines. It decides which folder the project
+              sits in inside every desktop, and what the Kind column reads. A
+              project that is genuinely two things is filed under the one a
+              visitor would look for first. */}
+          <Field label="Kind" hint="what it is. decides its folder in the desktops.">
+            <select className={inputCls} value={p.kind ?? ""}
+              onChange={(e) => set("kind", (e.target.value || null) as Kind | null)}>
+              <option value="">Unfiled</option>
+              {KINDS.map((k) => (
+                <option key={k} value={k}>{KIND_LABEL[k]}</option>
+              ))}
+            </select>
           </Field>
           <Field label="Your role">
             <input className={inputCls} value={p.role ?? ""} placeholder="Lead engineer"

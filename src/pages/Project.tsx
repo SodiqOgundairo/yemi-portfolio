@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { supabase, DISCIPLINE_LABEL, type Project as P } from "../lib/supabase";
-import { renderBody, readingTime } from "../lib/markdown";
+import { supabase, type Project as P } from "../lib/supabase";
+import { renderBody, disciplinesOf, readingLabel } from "../lib/markdown";
 import { cldUrl } from "../lib/cloudinary";
 
 export type Img = { id: string; url: string; caption: string | null; sort: number };
@@ -82,10 +82,10 @@ export function ProjectView({ p, imgs, onWork }: { p: P; imgs: Img[]; onWork: ()
     <Shell onWork={onWork}>
       <article className="pt-24">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <span className="hud text-bone">{DISCIPLINE_LABEL[p.discipline]}</span>
+          <span className="hud text-bone">{disciplinesOf(p)}</span>
           <span className="hairline w-10" />
           <span className="hud">{kind}</span>
-          {words > 0 && <><span className="hairline w-10" /><span className="hud">{readingTime(p.body!)} min</span></>}
+          {readingLabel(p.body) && <><span className="hairline w-10" /><span className="hud">{readingLabel(p.body)}</span></>}
         </div>
 
         <h1 className="display mt-6 max-w-4xl text-title">{p.title}</h1>

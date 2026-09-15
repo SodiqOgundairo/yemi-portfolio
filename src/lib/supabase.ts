@@ -92,6 +92,48 @@ export const DISCIPLINE_LABEL: Record<Discipline, string> = {
 
 export const DISCIPLINES: Discipline[] = ["product", "brand", "engineering"];
 
+/* What a project IS, as opposed to which discipline it belongs to. One kind
+ * per project on purpose: `discipline` plus `disciplines` already proved that
+ * a singular field beside a plural one gets rendered wrong, and a second
+ * many-to-many would compound it. A project that is genuinely two things,
+ * Skoolrithm being a mobile client over a school SaaS, is filed under the one
+ * a visitor would look for first. */
+export type Kind =
+  | "mobile" | "desktop" | "saas" | "website" | "library"
+  | "identity" | "applied" | "print" | "concept";
+
+/** Fixed order, so folders never reshuffle between shells or renders. */
+export const KINDS: Kind[] = [
+  "mobile", "desktop", "saas", "website", "library",
+  "identity", "applied", "print", "concept",
+];
+
+/** Singular: what ONE item is, for the Kind column. */
+export const KIND_LABEL: Record<Kind, string> = {
+  mobile: "Mobile app",
+  desktop: "Desktop app",
+  saas: "SaaS platform",
+  website: "Website",
+  library: "Library",
+  identity: "Identity system",
+  applied: "Applied & merch",
+  print: "Print & editorial",
+  concept: "Concept study",
+};
+
+/** Plural: a folder holding several. */
+export const KIND_FOLDER: Record<Kind, string> = {
+  mobile: "Mobile apps",
+  desktop: "Desktop apps",
+  saas: "SaaS & platforms",
+  website: "Websites",
+  library: "Libraries & tools",
+  identity: "Identity systems",
+  applied: "Applied & merch",
+  print: "Print & editorial",
+  concept: "Concept studies",
+};
+
 export type Project = {
   id: string;
   slug: string;
@@ -103,6 +145,8 @@ export type Project = {
    *  one label made the Engineering shelf look like five tools. The desktops
    *  filter on this; `discipline` stays the primary. */
   disciplines: Discipline[];
+  /** What it is. Null on a row written before kinds existed. */
+  kind: Kind | null;
   role: string | null;
   summary: string | null;
   body: string | null;

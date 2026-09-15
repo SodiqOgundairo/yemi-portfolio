@@ -1,5 +1,6 @@
 import { useEffect } from "react";
-import { DISCIPLINE_LABEL, type Project } from "../lib/supabase";
+import { type Project } from "../lib/supabase";
+import { disciplinesOf } from "../lib/markdown";
 import { cldUrl } from "../lib/cloudinary";
 
 /* Quick Look. Space opens it on the selected item, space or escape closes it,
@@ -52,7 +53,7 @@ export default function QuickLook({
           )}
           <div className="px-5 py-4 text-[13px]">
             <p className="text-[11px] uppercase tracking-[0.16em] text-white/40">
-              {DISCIPLINE_LABEL[project.discipline]}{project.role ? ` · ${project.role}` : ""}
+              {disciplinesOf(project)}{project.role ? ` · ${project.role}` : ""}
             </p>
             {project.summary && <p className="pt-2 leading-relaxed text-white/75">{project.summary}</p>}
             {!!metrics.length && (

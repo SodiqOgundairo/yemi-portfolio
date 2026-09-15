@@ -10,7 +10,7 @@ import type { Group } from "./useProjects";
 const base: Project = {
   id: "fixture", slug: "fixture", title: "", discipline: "product", disciplines: ["product"],
   role: null, summary: null, body: null, stack: [], metrics: {},
-  live_url: null, repo_url: null, cover_url: null, year: null,
+  live_url: null, repo_url: null, cover_url: null, year: null, kind: null,
   featured: false, sort: 0, published: true,
 };
 

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { supabase, DISCIPLINE_LABEL, type Project, type Discipline } from "../lib/supabase";
+import { supabase, DISCIPLINE_LABEL, KINDS, KIND_LABEL, KIND_FOLDER, type Project, type Discipline, type Kind } from "../lib/supabase";
 import { hasPage, type Group } from "../lib/useProjects";
-import { renderBody, readingTime } from "../lib/markdown";
+import { renderBody, disciplinesOf, readingLabel } from "../lib/markdown";
 import { MacIcon } from "../mac/icons";
 import { YaruIcon } from "../ubuntu/icons";
 import { FluentIcon } from "../win/icons";
@@ -27,6 +27,11 @@ export function Finder({
   shell?: Shell;
 }) {
   const [scope, setScope] = useState<Discipline | "all">(defaultScope);
+  /* Which kind folder is open. Null means the top of the current discipline. */
+  const [folder, setFolder] = useState<Kind | null>(null);
+  /* Folders group the work; the flat list is faster to scan once you know what
+     you are after. Both, because neither wins for every visitor. */
+  const [view, setView] = useState<"folders" | "list">("folders");
   const [sel, setSel] = useState<Project | null>(null);
   const [touch, setTouch] = useState(false);
   useEffect(() => {
@@ -53,23 +58,54 @@ export function Finder({
     return () => window.removeEventListener("keydown", key);
   }, [sel, onQuickLook]);
 
-  const shown = useMemo(() => {
-    if (scope !== "all") return groups.filter((g) => g.discipline === scope);
+  const projects = useMemo(() => {
+    if (scope !== "all") return groups.find((g) => g.discipline === scope)?.projects ?? [];
     /* Under All Work a project appears ONCE, filed under its PRIMARY
-       discipline. Projects now carry several, so summing the shelves listed
-       Flock twice and counted 57 of 38. Filtering to a single shelf keeps the
-       list honest while each discipline view still shows everything it holds. */
-    return groups
-      .map((g) => ({ ...g, projects: g.projects.filter((p) => p.discipline === g.discipline) }))
-      .filter((g) => g.projects.length > 0);
+       discipline. Projects carry several, so summing the shelves listed Flock
+       twice and counted 57 of 38. */
+    return groups.flatMap((g) => g.projects.filter((p) => p.discipline === g.discipline));
   }, [groups, scope]);
-  const total = new Set(groups.flatMap((g) => g.projects.map((p) => p.id))).size;
-  const inView = shown.reduce((n, g) => n + g.projects.length, 0);
 
+  /* Kinds present in this scope, in the fixed order, plus anything not yet
+     classified. An unclassified project sits loose beside the folders rather
+     than vanishing, which is also what a real file browser does. */
+  const { folders, loose } = useMemo(() => {
+    const by = new Map<Kind, Project[]>();
+    const rest: Project[] = [];
+    for (const p of projects) {
+      if (!p.kind) { rest.push(p); continue; }
+      const list = by.get(p.kind) ?? [];
+      list.push(p);
+      by.set(p.kind, list);
+    }
+    return {
+      folders: KINDS.filter((k) => by.has(k)).map((k) => ({ kind: k, projects: by.get(k)! })),
+      loose: rest,
+    };
+  }, [projects]);
+
+  // leaving a discipline closes whatever folder was open inside it
+  useEffect(() => { setFolder(null); setSel(null); }, [scope]);
+  useEffect(() => { setSel(null); }, [view, folder]);
+
+  const open = folder ? folders.find((f) => f.kind === folder) : null;
+  const rows = view === "list" ? projects : open ? open.projects : loose;
+  const showFolders = view === "folders" && !open;
+  const inView = rows.length + (showFolders ? folders.length : 0);
+
+  const total = new Set(groups.flatMap((g) => g.projects.map((p) => p.id))).size;
   const nav: [Discipline | "all", string][] = [
     ["all", `All Work (${total})`],
     ...groups.map((g) => [g.discipline, `${DISCIPLINE_LABEL[g.discipline]} (${g.projects.length})`] as [Discipline, string]),
   ];
+  const here = scope === "all" ? "All Work" : DISCIPLINE_LABEL[scope];
+
+  const cell = gnome ? "px-1.5 py-[6px]" : "px-3 py-[6px]";
+  const head = gnome ? "px-1.5 py-[3px] font-bold" : "px-3 py-1.5";
+  const rowCls = (on: boolean) =>
+    on
+      ? gnome ? "bg-[var(--os-view-select)]" : "bg-[var(--os-accent)] text-white"
+      : gnome ? "hover:bg-white/[0.04]" : "odd:bg-white/[0.02] hover:bg-white/[0.06]";
 
   return (
     <div className="flex h-full min-h-0 bg-[var(--os-bg)] text-[13px] text-[var(--os-text)]">
@@ -107,37 +143,78 @@ export function Finder({
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
+        {/* path on the left, view switch on the right, as every file browser does */}
+        <div className="flex h-[32px] shrink-0 items-center justify-between gap-3 border-b border-[var(--os-line)] bg-[var(--os-panel)] px-3">
+          <nav className="flex min-w-0 items-center gap-1 text-[12px]">
+            <button
+              onClick={() => setFolder(null)}
+              className={open ? "truncate text-[var(--os-text)]/60 hover:text-[var(--os-text)]" : "truncate text-[var(--os-text)]/80"}
+            >
+              {here}
+            </button>
+            {open && (
+              <>
+                <span className="text-[var(--os-dim)]">›</span>
+                <span className="truncate">{KIND_FOLDER[open.kind]}</span>
+              </>
+            )}
+          </nav>
+          <div className="flex shrink-0 items-center rounded-[6px] border border-[var(--os-line)]">
+            {(["folders", "list"] as const).map((v) => (
+              <button key={v} onClick={() => setView(v)}
+                aria-pressed={view === v}
+                className={`px-2.5 py-[3px] text-[11px] capitalize first:rounded-l-[5px] last:rounded-r-[5px] ${
+                  view === v ? "bg-white/15 text-white" : "text-[var(--os-text)]/55 hover:text-[var(--os-text)]"}`}>
+                {v}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className={`flex-1 overflow-y-auto ${gnome ? "px-6 pt-4" : ""}`}>
           <table className="w-full border-collapse">
             <thead className={`sticky top-0 text-[11px] ${gnome ? "bg-[var(--os-bg)]" : "bg-[var(--os-head)]"}`}>
               <tr className={gnome ? "text-[12px] font-bold text-[var(--os-text)]/40" : "text-[var(--os-dim)]"}>
-                <th className={`border-b border-[var(--os-line)] text-left font-medium ${gnome ? "px-1.5 py-[3px] font-bold" : "px-3 py-1.5"}`}>Name</th>
-                <th className={`hidden border-b border-[var(--os-line)] text-left font-medium lg:table-cell ${gnome ? "px-1.5 py-[3px] font-bold" : "px-3 py-1.5"}`}>Kind</th>
+                <th className={`border-b border-[var(--os-line)] text-left font-medium ${head}`}>Name</th>
+                <th className={`hidden border-b border-[var(--os-line)] text-left font-medium lg:table-cell ${head}`}>Kind</th>
               </tr>
             </thead>
             <tbody>
-              {shown.flatMap((g) => g.projects.map((p) => {
+              {showFolders && folders.map((f) => (
+                <tr key={f.kind}
+                  onClick={() => { if (touch) setFolder(f.kind); }}
+                  onDoubleClick={() => !touch && setFolder(f.kind)}
+                  className={`cursor-default ${rowCls(false)}`}>
+                  <td className={`flex items-center gap-2 ${cell}`}>
+                    <Glyph app="finder" size={15} />
+                    <span className="truncate">{KIND_FOLDER[f.kind]}</span>
+                  </td>
+                  <td className={`hidden whitespace-nowrap lg:table-cell ${cell} text-[var(--os-text)]/50`}>
+                    Folder, {f.projects.length} item{f.projects.length === 1 ? "" : "s"}
+                  </td>
+                </tr>
+              ))}
+
+              {rows.map((p) => {
                 const openable = hasPage(p, images[p.id] ?? 0);
                 const on = sel?.id === p.id;
                 return (
                   <tr key={p.id}
                     onClick={() => { setSel(p); if (touch && openable) onOpen(p.slug, p.title); }}
                     onDoubleClick={() => !touch && openable && onOpen(p.slug, p.title)}
-                    className={`cursor-default ${
-                      on
-                        ? gnome ? "bg-[var(--os-view-select)]" : "bg-[var(--os-accent)] text-white"
-                        : gnome ? "hover:bg-white/[0.04]" : "odd:bg-white/[0.02] hover:bg-white/[0.06]"
-                    }`}>
-                    <td className={`flex items-center gap-2 ${gnome ? "px-1.5 py-[6px]" : "px-3 py-[6px]"} ${openable ? "" : "text-[var(--os-text)]/45"}`}>
+                    className={`cursor-default ${rowCls(on)}`}>
+                    <td className={`flex items-center gap-2 ${cell} ${openable ? "" : "text-[var(--os-text)]/45"}`}>
                       <span className={openable ? "" : "opacity-45"}><Glyph app="reader" size={15} /></span>
                       <span className="truncate">{p.title}</span>
                     </td>
-                    <td className={`hidden whitespace-nowrap lg:table-cell ${gnome ? "px-1.5 py-[6px]" : "px-3 py-[6px]"} ${on && !gnome ? "text-white/80" : "text-[var(--os-text)]/50"}`}>
-                      {openable ? "Document" : "Credit"}
+                    <td className={`hidden whitespace-nowrap lg:table-cell ${cell} ${on && !gnome ? "text-white/80" : "text-[var(--os-text)]/50"}`}>
+                      {/* The real kind. This column used to read "Document" on
+                          every single row, which is a column doing no work. */}
+                      {p.kind ? KIND_LABEL[p.kind] : openable ? "Document" : "Credit"}
                     </td>
                   </tr>
                 );
-              }))}
+              })}
             </tbody>
           </table>
         </div>
@@ -178,8 +255,9 @@ function Preview({ p, openable, onOpen }: { p: Project; openable: boolean; onOpe
       <p className="text-center text-[13px] font-medium leading-tight text-white">{p.title}</p>
 
       <dl className="text-[11px]">
-        <Row k="Kind" v={openable ? "Document" : "Credit"} />
-        <Row k="Discipline" v={DISCIPLINE_LABEL[p.discipline]} />
+        <Row k="Kind" v={p.kind ? KIND_LABEL[p.kind] : openable ? "Document" : "Credit"} />
+        <Row k="Discipline" v={disciplinesOf(p)} />
+        <Row k="Case study" v={openable ? "Yes" : "Credit only"} />
         {p.role && <Row k="Role" v={p.role} />}
         {!!p.stack.length && <Row k="Stack" v={p.stack.join(", ")} />}
       </dl>
@@ -244,7 +322,6 @@ export function Reader({ slug }: { slug: string }) {
   if (state === "loading") return <Pad><p className="text-white/40">Opening…</p></Pad>;
   if (!p) return <Pad><p className="text-white/40">That document could not be found.</p></Pad>;
 
-  const words = p.body ? p.body.trim().split(/\s+/).length : 0;
   return (
     <div className="bg-[var(--os-bg)]">
       {/* Was h-[190px] + object-cover, which showed a 38% horizontal band
@@ -255,7 +332,8 @@ export function Reader({ slug }: { slug: string }) {
       )}
       <div className="mx-auto max-w-[62ch] px-7 py-8">
         <p className="text-[11px] uppercase tracking-[0.18em] text-white/40">
-          {DISCIPLINE_LABEL[p.discipline]}{words ? ` · ${readingTime(p.body!)} min` : ""}
+          {disciplinesOf(p)}{p.kind ? ` · ${KIND_LABEL[p.kind]}` : ""}
+          {readingLabel(p.body) ? ` · ${readingLabel(p.body)}` : ""}
         </p>
         <h1 className="pt-2 text-[26px] font-semibold leading-tight text-white">{p.title}</h1>
         {p.summary && <p className="pt-3 text-[15px] leading-relaxed text-white/60">{p.summary}</p>}
