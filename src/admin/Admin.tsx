@@ -12,7 +12,7 @@ import { HEADLINE_CLAIM, spell, countCountries } from "../lib/claims";
 
 const BLANK: Partial<Project> = {
   slug: "", title: "", discipline: "product", disciplines: ["product"], role: "", summary: "", body: "",
-  stack: [], metrics: {}, live_url: "", repo_url: "", cover_url: "", kind: null,
+  stack: [], metrics: {}, live_url: "", repo_url: "", cover_url: "", kind: null, collection: null,
   year: new Date().getFullYear(), featured: false, sort: 0, published: false,
 };
 
@@ -143,8 +143,8 @@ function NotAuthorised({ email }: { email: string | null }) {
 }
 
 /* ── editor ──────────────────────────────────────────────────────────────── */
-function Editor({ value, onSaved, onCancel }: {
-  value: Partial<Project>; onSaved: () => void; onCancel: () => void;
+function Editor({ value, collections, onSaved, onCancel }: {
+  value: Partial<Project>; collections: string[]; onSaved: () => void; onCancel: () => void;
 }) {
   const [p, setP] = useState<Partial<Project>>(value);
   const [busy, setBusy] = useState(false);
@@ -213,6 +213,17 @@ function Editor({ value, onSaved, onCancel }: {
                 <option key={k} value={k}>{KIND_LABEL[k]}</option>
               ))}
             </select>
+          </Field>
+          {/* Free text on purpose: a shelf Yemi invents, not one I predicted.
+              The datalist offers what already exists so the same shelf does
+              not end up spelled three ways and split into three folders. */}
+          <Field label="Collection" hint="optional. your own folder name, shown before the kinds.">
+            <input className={inputCls} list="collections" value={p.collection ?? ""}
+              placeholder="e.g. Award winners"
+              onChange={(e) => set("collection", e.target.value.trim() || null)} />
+            <datalist id="collections">
+              {collections.map((c) => <option key={c} value={c} />)}
+            </datalist>
           </Field>
           <Field label="Your role">
             <input className={inputCls} value={p.role ?? ""} placeholder="Lead engineer"
@@ -598,6 +609,9 @@ export default function Admin() {
      through `fail` makes both loaders look unstable and puts a spurious
      warning on the effect below. */
   const refresh = () => listProjects().then(setRows).catch((e) => setErr((e as Error).message));
+  /* Collections already in use, offered to the editor so the same shelf is not
+     spelled three ways and split into three folders. */
+  const collections = [...new Set(rows.map((r) => r.collection?.trim()).filter(Boolean) as string[])].sort();
   const refreshAbout = () => listAbout().then(setAbout).catch((e) => setErr((e as Error).message));
 
   useEffect(() => {
@@ -666,7 +680,7 @@ export default function Admin() {
               <p className="mb-8 mt-3 text-[15px] text-ghost">
                 {editing.id ? editing.title : "Drafts stay hidden until you tick Published."}
               </p>
-              <Editor value={editing} onSaved={() => { setEditing(null); refresh(); }}
+              <Editor value={editing} collections={collections} onSaved={() => { setEditing(null); refresh(); }}
                 onCancel={() => setEditing(null)} />
             </>
           ) : (

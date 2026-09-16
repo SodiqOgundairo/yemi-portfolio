@@ -147,6 +147,9 @@ export type Project = {
   disciplines: Discipline[];
   /** What it is. Null on a row written before kinds existed. */
   kind: Kind | null;
+  /** A shelf of Yemi's own naming, free text. Any non-empty value becomes a
+   *  folder in every desktop, listed after Featured and before the kinds. */
+  collection: string | null;
   role: string | null;
   summary: string | null;
   body: string | null;

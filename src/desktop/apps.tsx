@@ -27,8 +27,8 @@ export function Finder({
   shell?: Shell;
 }) {
   const [scope, setScope] = useState<Discipline | "all">(defaultScope);
-  /* Which kind folder is open. Null means the top of the current discipline. */
-  const [folder, setFolder] = useState<Kind | null>(null);
+  /* Which folder is open, by id. Null means the top of the current discipline. */
+  const [folder, setFolder] = useState<string | null>(null);
   /* Folders group the work; the flat list is faster to scan once you know what
      you are after. Both, because neither wins for every visitor. */
   const [view, setView] = useState<"folders" | "list">("folders");
@@ -77,29 +77,49 @@ export function Finder({
     });
   }, [groups, scope]);
 
-  /* Kinds present in this scope, in the fixed order, plus anything not yet
-     classified. An unclassified project sits loose beside the folders rather
-     than vanishing, which is also what a real file browser does. */
-  const { folders, loose } = useMemo(() => {
-    const by = new Map<Kind, Project[]>();
-    const rest: Project[] = [];
+  /* Folders, in the order an OS would put them: the curated shelf first,
+     then anything Yemi has named himself, then what things simply are.
+     Featured and collections are SMART folders: a project appears in them
+     AND in its kind folder, the same way a file can sit in a playlist and
+     still live in its own directory. */
+  const folders = useMemo(() => {
+    const out: { id: string; label: string; projects: Project[] }[] = [];
+
+    const starred = projects.filter((p) => p.featured);
+    if (starred.length) out.push({ id: "featured", label: "Featured", projects: starred });
+
+    const named = new Map<string, Project[]>();
     for (const p of projects) {
-      if (!p.kind) { rest.push(p); continue; }
-      const list = by.get(p.kind) ?? [];
-      list.push(p);
-      by.set(p.kind, list);
+      const name = p.collection?.trim();
+      if (!name) continue;
+      named.set(name, [...(named.get(name) ?? []), p]);
     }
-    return {
-      folders: KINDS.filter((k) => by.has(k)).map((k) => ({ kind: k, projects: by.get(k)! })),
-      loose: rest,
-    };
+    for (const name of [...named.keys()].sort((x, y) => x.localeCompare(y))) {
+      out.push({ id: `col:${name}`, label: name, projects: named.get(name)! });
+    }
+
+    const byKind = new Map<Kind, Project[]>();
+    for (const p of projects) {
+      if (!p.kind) continue;
+      byKind.set(p.kind, [...(byKind.get(p.kind) ?? []), p]);
+    }
+    for (const k of KINDS) {
+      if (byKind.has(k)) out.push({ id: `kind:${k}`, label: KIND_FOLDER[k], projects: byKind.get(k)! });
+    }
+    return out;
   }, [projects]);
 
+  /* Anything no folder claims. A project with no kind and no collection sits
+     loose beside the folders rather than vanishing, as a file browser does. */
+  const loose = useMemo(
+    () => projects.filter((p) => !p.kind && !p.collection?.trim() && !p.featured),
+    [projects],
+  );
   // leaving a discipline closes whatever folder was open inside it
   useEffect(() => { setFolder(null); setSel(null); }, [scope]);
   useEffect(() => { setSel(null); }, [view, folder]);
 
-  const open = folder ? folders.find((f) => f.kind === folder) : null;
+  const open = folder ? folders.find((f) => f.id === folder) : null;
   const rows = view === "list" ? projects : open ? open.projects : loose;
   const showFolders = view === "folders" && !open;
   const inView = rows.length + (showFolders ? folders.length : 0);
@@ -166,7 +186,7 @@ export function Finder({
             {open && (
               <>
                 <span className="text-[var(--os-dim)]">›</span>
-                <span className="truncate">{KIND_FOLDER[open.kind]}</span>
+                <span className="truncate">{open.label}</span>
               </>
             )}
           </nav>
@@ -192,13 +212,13 @@ export function Finder({
             </thead>
             <tbody>
               {showFolders && folders.map((f) => (
-                <tr key={f.kind}
-                  onClick={() => { if (touch) setFolder(f.kind); }}
-                  onDoubleClick={() => !touch && setFolder(f.kind)}
+                <tr key={f.id}
+                  onClick={() => { if (touch) setFolder(f.id); }}
+                  onDoubleClick={() => !touch && setFolder(f.id)}
                   className={`cursor-default ${rowCls(false)}`}>
                   <td className={`flex items-center gap-2 ${cell}`}>
                     <Glyph app="finder" size={15} />
-                    <span className="truncate">{KIND_FOLDER[f.kind]}</span>
+                    <span className="truncate">{f.label}</span>
                   </td>
                   <td className={`hidden whitespace-nowrap lg:table-cell ${cell} text-[var(--os-text)]/50`}>
                     Folder, {f.projects.length} item{f.projects.length === 1 ? "" : "s"}
