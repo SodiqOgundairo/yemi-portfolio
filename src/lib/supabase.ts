@@ -100,12 +100,12 @@ export const DISCIPLINES: Discipline[] = ["product", "brand", "engineering"];
  * a visitor would look for first. */
 export type Kind =
   | "mobile" | "desktop" | "saas" | "website" | "library"
-  | "identity" | "applied" | "print" | "concept";
+  | "identity" | "applied" | "print" | "concept" | "wip";
 
 /** Fixed order, so folders never reshuffle between shells or renders. */
 export const KINDS: Kind[] = [
   "mobile", "desktop", "saas", "website", "library",
-  "identity", "applied", "print", "concept",
+  "identity", "applied", "print", "concept", "wip",
 ];
 
 /** Singular: what ONE item is, for the Kind column. */
@@ -119,6 +119,9 @@ export const KIND_LABEL: Record<Kind, string> = {
   applied: "Applied & merch",
   print: "Print & editorial",
   concept: "Concept study",
+  /* A status rather than a shape, and deliberately so: Yemi wants shipped-but-
+     still-building called what it is instead of filed under Concept. */
+  wip: "Work in progress",
 };
 
 /** Plural: a folder holding several. */
@@ -132,6 +135,7 @@ export const KIND_FOLDER: Record<Kind, string> = {
   applied: "Applied & merch",
   print: "Print & editorial",
   concept: "Concept studies",
+  wip: "Work in progress",
 };
 
 export type Project = {
