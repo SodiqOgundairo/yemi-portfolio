@@ -34,6 +34,14 @@ export function Finder({
   const [view, setView] = useState<"folders" | "list">("folders");
   const [sel, setSel] = useState<Project | null>(null);
   const [touch, setTouch] = useState(false);
+  /* The narrow scope strip scrolls, and Engineering and Brand sit off the
+     right of it, so those two shells opened on a strip with nothing visibly
+     selected. Bring the current one into view instead. */
+  const chip = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    const el = chip.current;
+    if (el?.offsetParent) el.scrollIntoView({ inline: "center", block: "nearest" });
+  }, [scope]);
   useEffect(() => {
     setTouch(window.matchMedia("(hover: none), (pointer: coarse)").matches);
   }, []);
@@ -202,6 +210,22 @@ export function Finder({
           </div>
         </div>
 
+        {/* The sidebar is the only discipline switch and it is hidden below
+            sm, so a phone was pinned to whatever shelf the shell opened on and
+            All Work was unreachable. Same list, laid out the way a narrow
+            screen can take it. */}
+        <div className="flex shrink-0 gap-1.5 overflow-x-auto border-b border-[var(--os-line)] bg-[var(--os-panel)] px-3 py-1.5 [scrollbar-width:none] sm:hidden [&::-webkit-scrollbar]:hidden">
+          {nav.map(([id, label]) => (
+            <button key={id} onClick={() => setScope(id)} ref={scope === id ? chip : undefined}
+              className={`shrink-0 whitespace-nowrap px-2.5 py-2 text-[12px] ${gnome ? "rounded-[9px]" : "rounded-[6px]"} ${
+                scope === id
+                  ? gnome ? "bg-[var(--os-row-select)]" : "bg-white/15 text-white"
+                  : "text-[var(--os-text)]/60"}`}>
+              {label}
+            </button>
+          ))}
+        </div>
+
         <div className={`flex-1 overflow-y-auto ${gnome ? "px-6 pt-4" : ""}`}>
           <table className="w-full border-collapse">
             <thead className={`sticky top-0 text-[11px] ${gnome ? "bg-[var(--os-bg)]" : "bg-[var(--os-head)]"}`}>
@@ -217,8 +241,18 @@ export function Finder({
                   onDoubleClick={() => !touch && setFolder(f.id)}
                   className={`cursor-default ${rowCls(false)}`}>
                   <td className={`flex items-center gap-2 ${cell}`}>
-                    <Glyph app="finder" size={15} />
-                    <span className="truncate">{f.label}</span>
+                    <Glyph app="finder" size={15} className="shrink-0" />
+                    <span className="min-w-0">
+                      <span className="block truncate">{f.label}</span>
+                      {/* Below lg the Kind column is display:none, so everything
+                          a row knew about itself vanished on a phone. It moves
+                          under the name instead of squeezing the title into a
+                          second column, which is what a file browser does on a
+                          narrow screen. */}
+                      <span className="block truncate text-[11px] text-[var(--os-text)]/50 lg:hidden">
+                        {f.projects.length} item{f.projects.length === 1 ? "" : "s"}
+                      </span>
+                    </span>
                   </td>
                   <td className={`hidden whitespace-nowrap lg:table-cell ${cell} text-[var(--os-text)]/50`}>
                     Folder, {f.projects.length} item{f.projects.length === 1 ? "" : "s"}
@@ -229,19 +263,26 @@ export function Finder({
               {rows.map((p) => {
                 const openable = hasPage(p, images[p.id] ?? 0);
                 const on = sel?.id === p.id;
+                /* The real kind. This column used to read "Document" on every
+                   single row, which is a column doing no work. */
+                const kind = p.kind ? KIND_LABEL[p.kind] : openable ? "Document" : "Credit";
                 return (
                   <tr key={p.id}
                     onClick={() => { setSel(p); if (touch && openable) onOpen(p.slug, p.title); }}
                     onDoubleClick={() => !touch && openable && onOpen(p.slug, p.title)}
                     className={`cursor-default ${rowCls(on)}`}>
                     <td className={`flex items-center gap-2 ${cell} ${openable ? "" : "text-[var(--os-text)]/45"}`}>
-                      <span className={openable ? "" : "opacity-45"}><Glyph app="reader" size={15} /></span>
-                      <span className="truncate">{p.title}</span>
+                      <span className={`shrink-0 ${openable ? "" : "opacity-45"}`}><Glyph app="reader" size={15} /></span>
+                      <span className="min-w-0">
+                        <span className="block truncate">{p.title}</span>
+                        <span className={`block truncate text-[11px] lg:hidden ${
+                          on && !gnome ? "text-white/70" : "text-[var(--os-text)]/50"}`}>
+                          {kind}
+                        </span>
+                      </span>
                     </td>
                     <td className={`hidden whitespace-nowrap lg:table-cell ${cell} ${on && !gnome ? "text-white/80" : "text-[var(--os-text)]/50"}`}>
-                      {/* The real kind. This column used to read "Document" on
-                          every single row, which is a column doing no work. */}
-                      {p.kind ? KIND_LABEL[p.kind] : openable ? "Document" : "Credit"}
+                      {kind}
                     </td>
                   </tr>
                 );

@@ -113,7 +113,7 @@ export default function Mac() {
       </div>
 
       {compact ? (
-        <div className="absolute inset-x-0 bottom-[86px] top-[30px]">
+        <div className="absolute inset-x-0 bottom-[76px] top-[30px]">
           {front ? (
             <div role="dialog" aria-label={front.title}
                  className="mac-win absolute inset-2 flex flex-col overflow-hidden rounded-[12px] border border-white/15">
@@ -154,7 +154,7 @@ export default function Mac() {
         />
       )}
 
-      <Dock apps={dockApps} running={running} onOpen={(id) => open(id)} />
+      <Dock apps={dockApps} running={running} onOpen={(id) => open(id)} compact={compact} />
     </div>
   );
 }
