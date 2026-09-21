@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { Button } from "devign";
 import {
   supabase, listProjects, upsertProject, deleteProject, isOwner, setPublished,
@@ -38,6 +38,23 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
       </span>
       {children}
     </label>
+  );
+}
+
+/* A native select, wearing the same underline as the inputs. Native because
+   the filter bar has to be usable with a thumb, and the system picker beats
+   any menu we would draw for it. */
+function Pick({
+  label, value, onChange, options,
+}: { label: string; value: string; onChange: (v: string) => void; options: string[][] }) {
+  return (
+    <Field label={label}>
+      <select value={value} onChange={(e) => onChange(e.target.value)}
+        className={`${inputCls} cursor-pointer appearance-none [&>option]:bg-void [&>option]:text-bone`}>
+        <option value="all">All</option>
+        {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+      </select>
+    </Field>
   );
 }
 
@@ -599,10 +616,38 @@ export default function Admin() {
   const [rows, setRows] = useState<Project[]>([]);
   const [about, setAbout] = useState<About[]>([]);
   const [editing, setEditing] = useState<Partial<Project> | null>(null);
+  const [q, setQ] = useState("");
+  const [fDisc, setFDisc] = useState("all");
+  const [fKind, setFKind] = useState("all");
+  const [fStatus, setFStatus] = useState("all");
   const [editingAbout, setEditingAbout] = useState<Partial<About> | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   const fail = (e: unknown) => setErr((e as Error).message);
+
+  const filtering = q.trim() !== "" || fDisc !== "all" || fKind !== "all" || fStatus !== "all";
+  const clearFilters = () => { setQ(""); setFDisc("all"); setFKind("all"); setFStatus("all"); };
+  /* One pass over the rows we already hold. Nothing here goes back to
+     Supabase: 38 rows is nowhere near the size where a query per keystroke
+     would be the right trade, and a request per keystroke is exactly how a
+     small app runs up a bill. */
+  const shown = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    return rows.filter((r) => {
+      if (fDisc !== "all" && r.discipline !== fDisc && !(r.disciplines ?? []).some((d) => d === fDisc)) return false;
+      if (fKind !== "all" && (fKind === "none" ? !!r.kind : r.kind !== fKind)) return false;
+      if (fStatus === "live" && !r.published) return false;
+      if (fStatus === "draft" && r.published) return false;
+      if (fStatus === "featured" && !r.featured) return false;
+      if (!needle) return true;
+      return [
+        r.title, r.slug, r.role, r.summary, r.collection,
+        (r.stack ?? []).join(" "),
+        DISCIPLINE_LABEL[r.discipline],
+        r.kind ? KIND_LABEL[r.kind] : "",
+      ].filter(Boolean).join(" ").toLowerCase().includes(needle);
+    });
+  }, [rows, q, fDisc, fKind, fStatus]);
   /* The error handler is inlined in these two rather than reusing `fail`.
      exhaustive-deps proves a component function stable only when every free
      variable it touches is itself stable, and it does not recurse: routing
@@ -645,11 +690,14 @@ export default function Admin() {
   if (!owner) return <NotAuthorised email={email} />;
 
   const editingAnything = tab === "work" ? !!editing : !!editingAbout;
+  /* Only the card grid wants the extra width. A form at 1152px is a worse
+     form, and the About entries are paragraphs. */
+  const wide = tab === "work" && !editing;
 
   return (
     <div className="min-h-[100svh]">
       <header className="sticky top-0 z-10 border-b border-edge bg-void/85 backdrop-blur">
-        <div className="mx-auto flex max-w-3xl items-center gap-4 px-6 py-4">
+        <div className={`mx-auto flex items-center gap-4 px-6 py-4 ${wide ? "max-w-6xl" : "max-w-3xl"}`}>
           <span className="grid h-7 w-7 place-items-center border border-edge text-[11px] font-mono text-ghost">Y</span>
           <nav className="flex items-center gap-1">
             {(["work", "about"] as const).map((t) => (
@@ -670,7 +718,7 @@ export default function Admin() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl px-6 pb-24">
+      <main className={`mx-auto px-6 pb-24 ${wide ? "max-w-6xl" : "max-w-3xl"}`}>
         {err && <p className="pt-6 text-sm text-red-400">{err}</p>}
 
         {tab === "work" ? (
@@ -686,53 +734,100 @@ export default function Admin() {
           ) : (
             <>
               <h1 className="display pt-12 text-4xl">Work</h1>
-              <p className="mb-10 mt-3 text-[15px] text-ghost">
+              <p className="mt-3 text-[15px] text-ghost">
                 {rows.length} {rows.length === 1 ? "project" : "projects"} ·{" "}
                 {rows.filter((r) => r.published).length} live
               </p>
 
-              <ul className="border-t border-edge">
-                {rows.map((r) => (
-                  <li key={r.id} className="group flex items-center gap-5 border-b border-edge py-4">
-                    <div className="h-11 w-[70px] shrink-0 overflow-hidden border border-edge bg-ash">
-                      {r.cover_url && <img src={cldUrl(r.cover_url, { w: 160 })} alt="" className="h-full w-full object-cover" />}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[15px] text-bone">{r.title}</p>
-                      <p className="hud truncate pt-1">{DISCIPLINE_LABEL[r.discipline]} · {r.role || "—"}</p>
-                    </div>
-                    {/* The status IS the switch. It was previously readable
-                        here but only changeable inside the editor form, which
-                        made unpublishing look impossible. */}
-                    <button
-                      type="button"
-                      title={r.published ? "Published. Click to unpublish." : "Draft. Click to publish."}
-                      onClick={async () => {
-                        try { await setPublished(r.id, !r.published); refresh(); }
-                        catch (e) { fail(e); }
-                      }}
-                      className="flex items-center gap-2 px-2 py-1 transition-colors hover:text-bone"
-                    >
-                      <span className={`h-1.5 w-1.5 rounded-full ${r.published ? "bg-bone" : "bg-faint"}`} />
-                      <span className="hud">{r.published ? "live" : "draft"}</span>
-                    </button>
-                    <span className="flex gap-1 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
-                      <Button size="sm" onClick={() => setEditing(r)} className={`rounded-none ${BTN.quiet}`}>Edit</Button>
-                      <Button size="sm" className={`rounded-none ${BTN.danger}`}
-                        onClick={async () => {
-                          if (!confirm(`Delete “${r.title}”?`)) return;
-                          try { await deleteProject(r.id); refresh(); } catch (e) { fail(e); }
-                        }}>Delete</Button>
-                    </span>
-                  </li>
-                ))}
-                {!rows.length && (
-                  <li className="py-16 text-center">
-                    <p className="hud">Nothing here yet</p>
+              {/* Search and three filters, because 38 projects is past the
+                  point where scanning one long list is the fastest way to
+                  reach the one you came to edit. The filters read from the
+                  same enums the editor writes, so a kind can never exist here
+                  that the editor cannot set. */}
+              <div className="mt-8 grid gap-5 border-y border-edge py-5 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
+                <Field label="Search">
+                  <input className={inputCls} value={q} onChange={(e) => setQ(e.target.value)}
+                    placeholder="Title, role, stack, summary" />
+                </Field>
+                <Pick label="Discipline" value={fDisc} onChange={setFDisc}
+                  options={DISCIPLINES.map((d) => [d, DISCIPLINE_LABEL[d]])} />
+                <Pick label="Kind" value={fKind} onChange={setFKind}
+                  options={[["none", "No kind set"], ...KINDS.map((k) => [k, KIND_LABEL[k]] as [string, string])]} />
+                <Pick label="Status" value={fStatus} onChange={setFStatus}
+                  options={[["live", "Live"], ["draft", "Draft"], ["featured", "Featured"]]} />
+              </div>
+
+              {filtering && (
+                <p className="hud flex items-center gap-3 pt-4">
+                  {shown.length} of {rows.length} shown
+                  <button type="button" onClick={clearFilters} className="underline hover:text-bone">Clear</button>
+                </p>
+              )}
+
+              {shown.length ? (
+                /* A hairline grid: the 1px gaps ARE the borders, so the cards
+                   read as one table rather than as floating tiles. One column
+                   on a phone, which is the simple list the cards collapse to. */
+                <ul className="mt-8 grid gap-px border border-edge bg-edge sm:grid-cols-2 lg:grid-cols-3">
+                  {shown.map((r) => (
+                    <li key={r.id} className="group flex gap-4 bg-void p-3 sm:flex-col sm:gap-0 sm:p-0">
+                      {/* contain, not cover: these are screenshots, and the
+                          admin should show the same frame the site will. */}
+                      <div className="h-16 w-24 shrink-0 overflow-hidden border border-edge bg-ash sm:aspect-[8/5] sm:h-auto sm:w-full sm:border-0 sm:border-b">
+                        {r.cover_url
+                          ? <img src={cldUrl(r.cover_url, { w: 400 })} alt="" loading="lazy" className="h-full w-full object-contain" />
+                          : <span className="grid h-full w-full place-items-center"><span className="hud">no image</span></span>}
+                      </div>
+                      <div className="flex min-w-0 flex-1 flex-col sm:p-4">
+                        <p className="truncate text-[15px] text-bone">{r.title}</p>
+                        <p className="hud truncate pt-1">
+                          {DISCIPLINE_LABEL[r.discipline]}{r.kind ? ` · ${KIND_LABEL[r.kind]}` : ""}
+                        </p>
+                        <p className="truncate pt-1 text-xs text-faint">
+                          {r.role || "No role set"}{r.collection ? ` · ${r.collection}` : ""}
+                        </p>
+
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 pt-3 sm:mt-auto sm:pt-5">
+                          {/* The status IS the switch. It was previously readable
+                              here but only changeable inside the editor form, which
+                              made unpublishing look impossible. */}
+                          <button
+                            type="button"
+                            title={r.published ? "Published. Click to unpublish." : "Draft. Click to publish."}
+                            onClick={async () => {
+                              try { await setPublished(r.id, !r.published); refresh(); }
+                              catch (e) { fail(e); }
+                            }}
+                            className="flex shrink-0 items-center gap-2 py-1 pr-1 transition-colors hover:text-bone"
+                          >
+                            <span className={`h-1.5 w-1.5 rounded-full ${r.published ? "bg-bone" : "bg-faint"}`} />
+                            <span className="hud">{r.published ? "live" : "draft"}</span>
+                          </button>
+                          {r.featured && <span className="hud shrink-0" title="Featured">★</span>}
+                          <span className="flex-1" />
+                          <span className="flex shrink-0 gap-1 transition-opacity sm:opacity-0 sm:group-focus-within:opacity-100 sm:group-hover:opacity-100">
+                            <Button size="sm" onClick={() => setEditing(r)} className={`rounded-none ${BTN.quiet}`}>Edit</Button>
+                            <Button size="sm" className={`rounded-none ${BTN.danger}`}
+                              onClick={async () => {
+                                if (!confirm(`Delete “${r.title}”?`)) return;
+                                try { await deleteProject(r.id); refresh(); } catch (e) { fail(e); }
+                              }}>Delete</Button>
+                          </span>
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="border-t border-edge py-16 text-center">
+                  <p className="hud">{rows.length ? "No project matches that" : "Nothing here yet"}</p>
+                  {rows.length ? (
+                    <Button size="sm" onClick={clearFilters} className={`mt-5 rounded-none ${BTN.line}`}>Clear filters</Button>
+                  ) : (
                     <Button size="sm" onClick={addNew} className={`mt-5 rounded-none ${BTN.solid}`}>Add the first project</Button>
-                  </li>
-                )}
-              </ul>
+                  )}
+                </div>
+              )}
             </>
           )
         ) : editingAbout ? (
