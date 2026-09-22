@@ -74,7 +74,14 @@ export function useProjects(): ProjectsState {
            it genuinely belongs to. Falls back to the primary for any row
            written before the column existed. */
         .filter((p) => (p.disciplines?.length ? p.disciplines : [p.discipline]).includes(discipline))
-        .sort((a, b) => Number(b.featured) - Number(a.featured) || a.sort - b.sort),
+        /* Featured first, then anything with a cover, then sort order. A row
+           with no screenshot is the weakest thing on the shelf and it sinks
+           rather than sitting between two that have one. Yemi's call,
+           21/09/2026. Give a project a cover and it rises on its own. */
+        .sort((a, b) =>
+          Number(b.featured) - Number(a.featured) ||
+          Number(!!b.cover_url) - Number(!!a.cover_url) ||
+          a.sort - b.sort),
     }))
     .filter((g) => g.projects.length > 0);
 
